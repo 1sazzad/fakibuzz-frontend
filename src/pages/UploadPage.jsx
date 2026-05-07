@@ -1,6 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiEndpoints } from "../api/api";
 
+function createQuestion() {
+  return {
+    question_no: "",
+    question_text: "",
+    marks: "",
+    topic: "",
+  };
+}
+
+function normalizeQuestion(question = {}) {
+  return {
+    question_no: String(question.question_no ?? "").trim(),
+    question_text: String(question.question_text ?? question.text ?? "").trim(),
+    marks: question.marks ?? "",
+    topic: String(question.topic ?? "").trim(),
+  };
+}
+
+function normalizeImportedExam(rawPayload) {
+  const payload = rawPayload?.exam ?? rawPayload;
+  const questions = Array.isArray(payload?.questions) ? payload.questions.map(normalizeQuestion) : [createQuestion()];
+
+  return {
+    exam_name: String(payload?.exam_name ?? "Final Examination").trim(),
+    exam_year: payload?.exam_year ?? new Date().getFullYear(),
+    subject_name: String(payload?.subject_name ?? "").trim(),
+    subject_code: String(payload?.subject_code ?? "").trim(),
+    time: String(payload?.time ?? "3 hours").trim(),
+    total_marks: payload?.total_marks ?? 60,
+    questions: questions.length > 0 ? questions : [createQuestion()],
+  };
+}
+
 function UploadPage() {
   const [exam, setExam] = useState(() => ({
     exam_name: "Final Examination",
@@ -15,6 +48,11 @@ function UploadPage() {
   const [healthStatus, setHealthStatus] = useState("checking");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [jsonImport, setJsonImport] = useState("");
+  const [jsonError, setJsonError] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [publishSubjectCode, setPublishSubjectCode] = useState("");
+  const [publishMessage, setPublishMessage] = useState("");
 
   useEffect(() => {
     loadBootData();
@@ -22,11 +60,7 @@ function UploadPage() {
 
   async function loadBootData() {
     try {
-      const [healthResponse, subjectsResponse] = await Promise.all([
-        apiEndpoints.health(),
-        apiEndpoints.getSubjects(),
-      ]);
-
+      const [healthResponse, subjectsResponse] = await Promise.all([apiEndpoints.health(), apiEndpoints.getSubjects()]);
       setHealthStatus(healthResponse.data?.status === "ok" ? "online" : "degraded");
       setSubjects(subjectsResponse.data?.subjects || []);
     } catch (error) {
@@ -35,31 +69,19 @@ function UploadPage() {
     }
   }
 
-  function createQuestion() {
-    return {
-      question_no: "",
-      question_text: "",
-      marks: "",
-      topic: "",
-    };
-  }
-
-  const questionProgress = useMemo(() => {
-    const completeQuestions = exam.questions.filter(
-      (question) => question.question_no && question.question_text && question.marks && question.topic,
-    ).length;
-
-    return {
-      total: exam.questions.length,
-      complete: completeQuestions,
-    };
-  }, [exam.questions]);
-
   function updateExam(field, value) {
-    setExam((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setExam((current) => {
+      const next = {
+        ...current,
+        [field]: value,
+      };
+
+      if (field === "subject_code") {
+        setPublishSubjectCode(String(value).trim());
+      }
+
+      return next;
+    });
   }
 
   function updateQuestion(index, field, value) {
@@ -81,11 +103,56 @@ function UploadPage() {
   function removeQuestion(index) {
     setExam((current) => ({
       ...current,
-      questions: current.questions.length === 1
-        ? [createQuestion()]
-        : current.questions.filter((_, questionIndex) => questionIndex !== index),
+      questions: current.questions.length === 1 ? [createQuestion()] : current.questions.filter((_, questionIndex) => questionIndex !== index),
     }));
   }
+
+  function applyImportedExam(rawPayload) {
+    const importedExam = normalizeImportedExam(rawPayload);
+    setExam(importedExam);
+    setPublishSubjectCode(importedExam.subject_code);
+    setMessage("JSON loaded into the form. Review the fields, then submit to the admin API.");
+    setJsonError("");
+  }
+
+  async function handleJsonFileChange(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const fileText = await file.text();
+      setJsonImport(fileText);
+      applyImportedExam(JSON.parse(fileText));
+    } catch (error) {
+      console.error(error);
+      setJsonError("Invalid JSON file. Make sure it contains exam metadata and questions.");
+    }
+
+    event.target.value = "";
+  }
+
+  function handleLoadJsonText() {
+    try {
+      applyImportedExam(JSON.parse(jsonImport));
+    } catch (error) {
+      console.error(error);
+      setJsonError("Invalid JSON. Paste a valid exam payload before loading it.");
+    }
+  }
+
+  const questionProgress = useMemo(() => {
+    const completeQuestions = exam.questions.filter(
+      (question) => question.question_no && question.question_text && question.marks !== "" && question.topic,
+    ).length;
+
+    return {
+      total: exam.questions.length,
+      complete: completeQuestions,
+    };
+  }, [exam.questions]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -97,10 +164,10 @@ function UploadPage() {
 
     const questions = exam.questions
       .map((question) => ({
-        question_no: question.question_no.trim(),
-        question_text: question.question_text.trim(),
+        question_no: String(question.question_no).trim(),
+        question_text: String(question.question_text).trim(),
         marks: Number(question.marks),
-        topic: question.topic.trim(),
+        topic: String(question.topic).trim(),
       }))
       .filter((question) => question.question_no && question.question_text && question.topic && Number.isFinite(question.marks));
 
@@ -113,7 +180,7 @@ function UploadPage() {
     setMessage("Submitting exam and generating embeddings...");
 
     try {
-      await apiEndpoints.submitExam({
+      await apiEndpoints.createAdminExam({
         exam_name: exam.exam_name.trim(),
         exam_year: Number(exam.exam_year),
         subject_name: exam.subject_name.trim(),
@@ -123,7 +190,7 @@ function UploadPage() {
         questions,
       });
 
-      setMessage("Exam saved successfully. You can now search, analyze, predict, and generate answers from it.");
+      setMessage("Exam saved successfully. Use the publish section below when the subject is ready for students.");
       setExam({
         exam_name: "Final Examination",
         exam_year: new Date().getFullYear(),
@@ -133,11 +200,33 @@ function UploadPage() {
         total_marks: 60,
         questions: [createQuestion()],
       });
+      setPublishSubjectCode("");
     } catch (error) {
       console.error(error);
       setMessage(error.response?.data?.detail || "Submission failed. Check the backend and payload format.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handlePublishSubject() {
+    if (!publishSubjectCode.trim()) {
+      setPublishMessage("Enter a subject code to publish.");
+      return;
+    }
+
+    setPublishing(true);
+    setPublishMessage("Publishing subject data...");
+
+    try {
+      const response = await apiEndpoints.publishSubject(publishSubjectCode.trim());
+      const data = response.data || {};
+      setPublishMessage(data.message || `Subject ${publishSubjectCode.trim()} published successfully.`);
+    } catch (error) {
+      console.error(error);
+      setPublishMessage(error.response?.data?.detail || "Publish failed. Check the subject code and backend response.");
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -147,13 +236,13 @@ function UploadPage() {
         <section className="grid gap-6 rounded-[2rem] border border-white/10 bg-slate-950/90 p-6 text-white shadow-2xl shadow-slate-950/30 lg:grid-cols-[1.2fr_0.8fr] lg:p-8">
           <div className="space-y-4">
             <span className="inline-flex rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-cyan-200">
-              API ready exam ingestion
+              Admin JSON ingest
             </span>
             <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-              Submit one exam, index it once, reuse it everywhere.
+              Import a JSON exam, index it once, publish it when ready.
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-              Add the exam metadata and questions here. The backend stores the data in SQLite, creates embeddings, and pushes vectors into ChromaDB for search, analysis, prediction, and answer generation.
+              Paste or upload the admin exam JSON, review the generated form, submit it to the backend, then publish the subject for student access.
             </p>
 
             <div className="flex flex-wrap gap-3 text-sm text-slate-300">
@@ -175,21 +264,21 @@ function UploadPage() {
           </div>
 
           <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-            <h2 className="text-lg font-semibold text-white">Quick workflow</h2>
+            <h2 className="text-lg font-semibold text-white">Workflow</h2>
             <ol className="mt-4 space-y-3 text-sm text-slate-300">
-              <li className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">1. Add a complete exam and question list.</li>
-              <li className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">2. Search the vector store with the semantic search page.</li>
-              <li className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">3. Review analysis and predicted questions by subject.</li>
+              <li className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">1. Import a JSON payload or edit the form manually.</li>
+              <li className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">2. Submit the exam to create embeddings and store the data.</li>
+              <li className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">3. Publish the subject when student access should be enabled.</li>
             </ol>
           </div>
         </section>
 
-        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="space-y-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <form onSubmit={handleSubmit} className="space-y-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-semibold text-slate-950">Exam details</h2>
-                <p className="text-sm text-slate-500">These fields are sent directly to POST /exams.</p>
+                <p className="text-sm text-slate-500">These fields are sent directly to POST /admin/exams.</p>
               </div>
               <div className="rounded-full bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
                 {questionProgress.complete}/{questionProgress.total} questions complete
@@ -318,18 +407,52 @@ function UploadPage() {
                 ))}
               </div>
             </div>
-          </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {loading ? "Submitting exam..." : "Save exam to admin API"}
+            </button>
+
+            {message && (
+              <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                {message}
+              </div>
+            )}
+          </form>
 
           <aside className="space-y-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
             <div>
-              <h2 className="text-2xl font-semibold text-slate-950">Submit exam</h2>
-              <p className="mt-1 text-sm text-slate-500">The backend will store data, embed each question, and upsert vectors to ChromaDB.</p>
+              <h2 className="text-2xl font-semibold text-slate-950">Import JSON</h2>
+              <p className="mt-1 text-sm text-slate-500">Paste the admin exam JSON or upload a .json file.</p>
+            </div>
+
+            <div className="space-y-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+              <input type="file" accept="application/json,.json" onChange={handleJsonFileChange} className="block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800" />
+              <textarea
+                value={jsonImport}
+                onChange={(event) => setJsonImport(event.target.value)}
+                placeholder='{"exam_name":"Final Examination","subject_code":"CSE-421","questions":[...]}'
+                className="min-h-48 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm outline-none focus:border-cyan-400"
+              />
+              <button
+                type="button"
+                onClick={handleLoadJsonText}
+                className="rounded-full bg-slate-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Load JSON into form
+              </button>
+              {jsonError && <p className="text-sm text-rose-600">{jsonError}</p>}
             </div>
 
             <div className="grid gap-3 rounded-[1.5rem] bg-slate-950 p-5 text-white">
               <div className="flex items-center justify-between text-sm text-slate-300">
                 <span>Questions ready</span>
-                <span className="font-semibold text-white">{questionProgress.complete}/{questionProgress.total}</span>
+                <span className="font-semibold text-white">
+                  {questionProgress.complete}/{questionProgress.total}
+                </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-white/10">
                 <div
@@ -342,19 +465,27 @@ function UploadPage() {
               </p>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {loading ? "Submitting exam..." : "Save exam to API"}
-            </button>
-
-            {message && (
-              <div className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                {message}
+            <div className="space-y-3 rounded-[1.5rem] border border-cyan-100 bg-cyan-50 p-5 text-sm text-cyan-900">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-950">Publish subject</h3>
+                <p className="mt-1 text-sm text-slate-600">After review, publish the subject so students can access it.</p>
               </div>
-            )}
+              <input
+                value={publishSubjectCode}
+                onChange={(event) => setPublishSubjectCode(event.target.value)}
+                placeholder="CSE-421"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-cyan-400"
+              />
+              <button
+                type="button"
+                onClick={handlePublishSubject}
+                disabled={publishing}
+                className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {publishing ? "Publishing..." : "Publish subject"}
+              </button>
+              {publishMessage && <p>{publishMessage}</p>}
+            </div>
 
             <div className="rounded-[1.5rem] border border-cyan-100 bg-cyan-50 p-5 text-sm text-cyan-900">
               <p className="font-semibold">Example subjects loaded</p>
@@ -369,7 +500,7 @@ function UploadPage() {
               </div>
             </div>
           </aside>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ function PredictionsPage() {
         if (subjectList.length > 0) {
           const subjectCode = subjectList[0].subject_code;
           setSelectedSubject(subjectCode);
-          return apiEndpoints.getPredictions(subjectCode).then((predictionResponse) => {
+          return apiEndpoints.getSubjectPrediction(subjectCode).then((predictionResponse) => {
             if (active) {
               setPredictions(predictionResponse.data?.predictions || predictionResponse.data?.questions || predictionResponse.data?.items || []);
             }
@@ -65,7 +65,7 @@ function PredictionsPage() {
     setMessage("");
 
     try {
-      const response = await apiEndpoints.getPredictions(subjectCode);
+      const response = await apiEndpoints.getSubjectPrediction(subjectCode);
       setPredictions(response.data?.predictions || response.data?.questions || response.data?.items || []);
     } catch (error) {
       console.error(error);
@@ -111,7 +111,7 @@ function PredictionsPage() {
               <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">Prediction engine</p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight">Rank likely future questions by confidence</h1>
               <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                Uses GET /predict/{"{subject_code}"} and turns the confidence score into a friendly importance label.
+                Uses GET /subjects/{"{subject_code}"}/prediction and turns the confidence score into a friendly importance label.
               </p>
             </div>
 

@@ -1,5 +1,4 @@
 import { Routes, Route } from "react-router-dom";
-import { Navigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 
@@ -16,17 +15,12 @@ function App() {
       <Navbar />
 
       <Routes>
-        <Route path="/" element={<UploadPage />} />
-        <Route path="/subjects" element={<UploadPage />} />
-        <Route path="/questions" element={<QuestionsPage />} />
+        <Route path="/" element={<QuestionsPage />} />
         <Route path="/search" element={<SimilarQuestionsPage />} />
-        <Route path="/similar-questions" element={<Navigate to="/search" replace />} />
         <Route path="/analysis" element={<TopicsPage />} />
-        <Route path="/topics" element={<Navigate to="/analysis" replace />} />
         <Route path="/predict" element={<PredictionsPage />} />
-        <Route path="/predictions" element={<Navigate to="/predict" replace />} />
         <Route path="/answers" element={<GenerateAnswerPage />} />
-        <Route path="/generate-answer" element={<Navigate to="/answers" replace />} />
+        <Route path="/admin/exams" element={<UploadPage />} />
       </Routes>
     </>
   );

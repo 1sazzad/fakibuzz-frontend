@@ -30,7 +30,7 @@ function TopicsPage() {
         if (subjectList.length > 0) {
           const subjectCode = subjectList[0].subject_code;
           setSelectedSubject(subjectCode);
-          return apiEndpoints.getAnalysis(subjectCode).then((analysisResponse) => {
+          return apiEndpoints.getSubjectAnalysis(subjectCode).then((analysisResponse) => {
             if (active) {
               setAnalysis(analysisResponse.data);
             }
@@ -69,7 +69,7 @@ function TopicsPage() {
     setMessage("");
 
     try {
-      const response = await apiEndpoints.getAnalysis(subjectCode);
+      const response = await apiEndpoints.getSubjectAnalysis(subjectCode);
       setAnalysis(response.data);
     } catch (error) {
       console.error(error);

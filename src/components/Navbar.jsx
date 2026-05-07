@@ -1,12 +1,12 @@
 import { NavLink } from "react-router-dom";
 
 const navItems = [
-  { to: "/", label: "Submit Exam" },
-  { to: "/questions", label: "Questions" },
+  { to: "/", label: "Subjects" },
   { to: "/search", label: "Search" },
   { to: "/analysis", label: "Analysis" },
   { to: "/predict", label: "Predictions" },
   { to: "/answers", label: "Answer Builder" },
+  { to: "/admin/exams", label: "Admin Upload" },
 ];
 
 function Navbar() {
