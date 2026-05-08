@@ -19,6 +19,10 @@ function normalizeClusters(data) {
   return data?.clusters || data?.items || data?.data || data?.results || (Array.isArray(data) ? data : []);
 }
 
+function getClusterId(cluster, fallback) {
+  return cluster.id || cluster.cluster_id || fallback;
+}
+
 function TopicReviewPage() {
   const [subjectCode, setSubjectCode] = useState("");
   const [status, setStatus] = useState("pending");
@@ -42,9 +46,9 @@ function TopicReviewPage() {
       const nextClusters = normalizeClusters(response.data);
       setClusters(nextClusters);
       setTopicDrafts(
-        nextClusters.reduce((drafts, cluster) => {
-          const id = cluster.id || cluster.cluster_id;
-          drafts[id] = cluster.suggested_topic || cluster.topic || "";
+        nextClusters.reduce((drafts, cluster, index) => {
+          const id = getClusterId(cluster, index);
+          drafts[id] = cluster.suggested_topic || cluster.topic || cluster.final_topic || "";
           return drafts;
         }, {}),
       );
@@ -91,7 +95,7 @@ function TopicReviewPage() {
     try {
       await apiEndpoints.approveTopicCluster(clusterId, { final_topic: finalTopic });
       setMessage("Topic cluster approved.");
-      setClusters((current) => current.filter((cluster) => (cluster.id || cluster.cluster_id) !== clusterId));
+      setClusters((current) => current.filter((cluster, index) => getClusterId(cluster, index) !== clusterId));
     } catch (err) {
       setError(getErrorMessage(err, "Unable to approve topic cluster."));
     } finally {
@@ -106,12 +110,57 @@ function TopicReviewPage() {
     try {
       await apiEndpoints.rejectTopicCluster(clusterId);
       setMessage("Topic cluster rejected.");
-      setClusters((current) => current.filter((cluster) => (cluster.id || cluster.cluster_id) !== clusterId));
+      setClusters((current) => current.filter((cluster, index) => getClusterId(cluster, index) !== clusterId));
     } catch (err) {
       setError(getErrorMessage(err, "Unable to reject topic cluster."));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function approveAllClusters() {
+    const pendingClusters = clusters.filter((cluster) => (cluster.status || status) === "pending");
+
+    if (pendingClusters.length === 0) {
+      setError("No pending topic clusters are loaded.");
+      return;
+    }
+
+    const missingTopic = pendingClusters.find((cluster, index) => !String(topicDrafts[getClusterId(cluster, index)] || "").trim());
+
+    if (missingTopic) {
+      setError("Every loaded cluster needs a final topic before approving all.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setMessage(`Approving ${pendingClusters.length} topic cluster(s)...`);
+
+    const failedIds = [];
+    const approvedIds = [];
+
+    for (const [index, cluster] of pendingClusters.entries()) {
+      const clusterId = getClusterId(cluster, index);
+      const finalTopic = String(topicDrafts[clusterId] || "").trim();
+
+      try {
+        await apiEndpoints.approveTopicCluster(clusterId, { final_topic: finalTopic });
+        approvedIds.push(clusterId);
+      } catch (err) {
+        console.error(err);
+        failedIds.push(clusterId);
+      }
+    }
+
+    setClusters((current) => current.filter((cluster, index) => !approvedIds.includes(getClusterId(cluster, index))));
+    setMessage(`Approved ${approvedIds.length} topic cluster(s).${failedIds.length > 0 ? ` Failed: ${failedIds.join(", ")}.` : ""}`);
+
+    if (failedIds.length > 0) {
+      setError("Some topic clusters could not be approved. Check the console or retry.");
+    }
+
+    setLoading(false);
   }
 
   return (
@@ -122,7 +171,7 @@ function TopicReviewPage() {
           <h1 className="mt-3 text-3xl font-semibold text-slate-950">Topic Review</h1>
           <p className="mt-2 text-sm text-slate-500">Review pending topic clusters and approve the final topic names.</p>
 
-          <form onSubmit={loadClusters} className="mt-6 grid gap-3 md:grid-cols-[1fr_180px_auto_auto]">
+          <form onSubmit={loadClusters} className="mt-6 grid gap-3 md:grid-cols-[1fr_180px_auto_auto_auto]">
             <input
               value={subjectCode}
               onChange={(event) => setSubjectCode(event.target.value)}
@@ -144,6 +193,9 @@ function TopicReviewPage() {
             <button type="button" onClick={generateReview} disabled={loading} className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 disabled:bg-slate-300">
               Generate
             </button>
+            <button type="button" onClick={approveAllClusters} disabled={loading || status !== "pending" || clusters.length === 0} className="rounded-full bg-green-500 px-5 py-3 text-sm font-semibold text-white disabled:bg-slate-300">
+              Approve all loaded
+            </button>
           </form>
 
           {error && <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
@@ -152,7 +204,7 @@ function TopicReviewPage() {
 
         <div className="space-y-4">
           {clusters.map((cluster, index) => {
-            const clusterId = cluster.id || cluster.cluster_id || index;
+            const clusterId = getClusterId(cluster, index);
             const questions = cluster.questions || cluster.sample_questions || cluster.important_questions || [];
 
             return (

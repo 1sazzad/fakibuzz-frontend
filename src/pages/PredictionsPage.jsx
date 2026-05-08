@@ -13,6 +13,23 @@ function normalizeSubjects(payload) {
     .filter((subject) => Boolean(subject.subject_code));
 }
 
+function normalizePredictions(payload) {
+  const items = payload?.predictions || payload?.questions || payload?.items || payload?.suggestions || payload?.data || [];
+  return Array.isArray(items) ? items : [];
+}
+
+function getPredictionMessage(payload, fallback) {
+  if (payload?.message) {
+    return payload.message;
+  }
+
+  if (payload?.pending_review_count > 0) {
+    return `No approved topics yet. ${payload.pending_review_count} topic review item(s) are pending approval.`;
+  }
+
+  return fallback;
+}
+
 function PredictionsPage() {
   const [predictions, setPredictions] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -21,6 +38,10 @@ function PredictionsPage() {
   const [message, setMessage] = useState("");
 
   const navigate = useNavigate();
+
+  async function loadPredictionData(subjectCode) {
+    return apiEndpoints.getSubjectPrediction(subjectCode);
+  }
 
   useEffect(() => {
     let active = true;
@@ -45,9 +66,11 @@ function PredictionsPage() {
         setSelectedSubject(subjectCode);
 
         try {
-          const predictionResponse = await apiEndpoints.getSubjectPrediction(subjectCode);
+          const predictionResponse = await loadPredictionData(subjectCode);
           if (active) {
-            setPredictions(predictionResponse.data?.predictions || predictionResponse.data?.questions || predictionResponse.data?.items || []);
+            const nextPredictions = normalizePredictions(predictionResponse.data);
+            setPredictions(nextPredictions);
+            setMessage(nextPredictions.length === 0 ? getPredictionMessage(predictionResponse.data, "No predictions returned for this subject.") : "");
           }
         } catch (error) {
           console.error(error);
@@ -89,8 +112,10 @@ function PredictionsPage() {
     setMessage("");
 
     try {
-      const response = await apiEndpoints.getSubjectPrediction(subjectCode);
-      setPredictions(response.data?.predictions || response.data?.questions || response.data?.items || []);
+      const response = await loadPredictionData(subjectCode);
+      const nextPredictions = normalizePredictions(response.data);
+      setPredictions(nextPredictions);
+      setMessage(nextPredictions.length === 0 ? getPredictionMessage(response.data, "No predictions returned for this subject.") : "");
     } catch (error) {
       console.error(error);
       setPredictions([]);
@@ -115,8 +140,10 @@ function PredictionsPage() {
     setMessage("");
 
     try {
-      const response = await apiEndpoints.getSubjectPrediction(selectedSubject.trim());
-      setPredictions(response.data?.predictions || response.data?.questions || response.data?.items || []);
+      const response = await loadPredictionData(selectedSubject.trim());
+      const nextPredictions = normalizePredictions(response.data);
+      setPredictions(nextPredictions);
+      setMessage(nextPredictions.length === 0 ? getPredictionMessage(response.data, "No predictions returned for this subject.") : "");
     } catch (error) {
       console.error(error);
       setPredictions([]);

@@ -88,14 +88,13 @@ export const apiEndpoints = {
   health: () => API.get("/health"),
   searchSubject: (query) => API.get("/subjects/search", { params: { query } }),
   getSubjectOverview: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/overview`),
-  getSubjects: () => API.get("/subjects"),
+  getSubjects: (params) => API.get("/subjects", { params }),
   getSubjectQuestions: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/questions`),
   searchQuestions: (payload) => API.post("/search", payload),
   getSubjectAnalysis: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/analysis`),
   getSubjectPrediction: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/prediction`),
-  getSubjectTopics: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/topics`),
-  generateAnswer: (payload) => API.post("/answers/generate", payload),
-  generateAnswerV2: (payload) => API.post("/generate-answer", payload),
+  getSuggestions: (payload) => API.post("/suggestions", payload),
+  generateAnswer: (payload) => API.post("/generate-answer", payload),
   importAdminExams: (payload) => API.post("/admin/exams/import", payload),
   importAdminExamFile: (file) => {
     const formData = new FormData();
@@ -103,10 +102,14 @@ export const apiEndpoints = {
     return API.post("/admin/exams/import-file", formData);
   },
   publishSubject: (subjectCode) => API.post(`/admin/subjects/${encodePath(subjectCode)}/publish`),
+  deleteSubject: (subjectCode) => API.delete(`/admin/subjects/${encodePath(subjectCode)}`),
+  deleteSubjectTopic: (subjectCode, topicName) => API.delete(`/admin/subjects/${encodePath(subjectCode)}/topics/${encodePath(topicName)}`),
   getTopicReview: (params) => API.get("/admin/topic-review", { params }),
   generateTopicReview: (payload) => API.post("/admin/topic-review/generate", payload),
   approveTopicCluster: (clusterId, payload) => API.post(`/admin/topic-review/${encodePath(clusterId)}/approve`, payload),
   rejectTopicCluster: (clusterId) => API.post(`/admin/topic-review/${encodePath(clusterId)}/reject`),
+  getAdminPipelineDebug: (subjectCode) => API.get(`/admin/debug/pipeline/${encodePath(subjectCode)}`),
+  getAdminQuestionsDebug: (subjectCode) => API.get(`/admin/debug/questions/${encodePath(subjectCode)}`),
 };
 
 export default API;

@@ -17,6 +17,18 @@ function extractTopics(analysis) {
   return analysis?.topics || analysis?.analysis || analysis?.repeated_topics || [];
 }
 
+function getAnalysisMessage(payload, fallback) {
+  if (payload?.message) {
+    return payload.message;
+  }
+
+  if (payload?.pending_review_count > 0) {
+    return `No approved topics yet. ${payload.pending_review_count} topic review item(s) are pending approval.`;
+  }
+
+  return fallback;
+}
+
 function TopicsPage() {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -25,6 +37,10 @@ function TopicsPage() {
   const [message, setMessage] = useState("");
 
   const navigate = useNavigate();
+
+  async function loadAnalysisData(subjectCode) {
+    return apiEndpoints.getSubjectAnalysis(subjectCode);
+  }
 
   useEffect(() => {
     let active = true;
@@ -49,9 +65,10 @@ function TopicsPage() {
         setSelectedSubject(subjectCode);
 
         try {
-          const analysisResponse = await apiEndpoints.getSubjectAnalysis(subjectCode);
+          const analysisResponse = await loadAnalysisData(subjectCode);
           if (active) {
             setAnalysis(analysisResponse.data);
+            setMessage(extractTopics(analysisResponse.data).length === 0 ? getAnalysisMessage(analysisResponse.data, "") : "");
           }
         } catch (error) {
           console.error(error);
@@ -93,8 +110,9 @@ function TopicsPage() {
     setMessage("");
 
     try {
-      const response = await apiEndpoints.getSubjectAnalysis(subjectCode);
+      const response = await loadAnalysisData(subjectCode);
       setAnalysis(response.data);
+      setMessage(extractTopics(response.data).length === 0 ? getAnalysisMessage(response.data, "") : "");
     } catch (error) {
       console.error(error);
       setAnalysis(null);
@@ -119,8 +137,9 @@ function TopicsPage() {
     setMessage("");
 
     try {
-      const response = await apiEndpoints.getSubjectAnalysis(selectedSubject.trim());
+      const response = await loadAnalysisData(selectedSubject.trim());
       setAnalysis(response.data);
+      setMessage(extractTopics(response.data).length === 0 ? getAnalysisMessage(response.data, "") : "");
     } catch (error) {
       console.error(error);
       setAnalysis(null);
@@ -269,7 +288,17 @@ function TopicsPage() {
                   <p className="text-sm text-slate-500">Repeated topics</p>
                   <p className="mt-1 font-semibold text-slate-950">{topicEntries.length}</p>
                 </div>
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Pending review</p>
+                  <p className="mt-1 font-semibold text-slate-950">{analysis.pending_review_count ?? 0}</p>
+                </div>
               </div>
+
+              {analysis.message && (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {analysis.message}
+                </p>
+              )}
 
               {Array.isArray(analysis.sample_questions) && analysis.sample_questions.length > 0 && (
                 <div>

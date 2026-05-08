@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -9,6 +10,7 @@ import QuestionsPage from "./pages/QuestionsPage";
 import SimilarQuestionsPage from "./pages/SimilarQuestionsPage";
 import TopicsPage from "./pages/TopicsPage";
 import PredictionsPage from "./pages/PredictionsPage";
+import SuggestionsPage from "./pages/SuggestionsPage";
 import GenerateAnswerPage from "./pages/GenerateAnswerPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -23,9 +25,29 @@ import ManageSubjectsPage from "./pages/admin/ManageSubjectsPage";
 import TopicReviewPage from "./pages/admin/TopicReviewPage";
 
 function App() {
+  const [permissionMessage, setPermissionMessage] = useState("");
+
+  useEffect(() => {
+    function handleForbidden() {
+      setPermissionMessage("You do not have permission.");
+    }
+
+    window.addEventListener("auth:forbidden", handleForbidden);
+    return () => window.removeEventListener("auth:forbidden", handleForbidden);
+  }, []);
+
   return (
     <>
       <Navbar />
+
+      {permissionMessage && (
+        <div className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-center text-sm font-medium text-rose-700">
+          {permissionMessage}
+          <button type="button" onClick={() => setPermissionMessage("")} className="ml-4 underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <Routes>
         <Route path="/" element={<QuestionsPage />} />
@@ -38,7 +60,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/subjects" element={<QuestionsPage />} />
           <Route path="/search" element={<SimilarQuestionsPage />} />
-          <Route path="/suggestions" element={<PredictionsPage />} />
+          <Route path="/suggestions" element={<SuggestionsPage />} />
           <Route path="/generate-answer" element={<GenerateAnswerPage />} />
           <Route path="/analysis" element={<TopicsPage />} />
           <Route path="/profile" element={<ProfilePage />} />

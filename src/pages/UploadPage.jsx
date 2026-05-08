@@ -533,16 +533,20 @@ function UploadPage() {
                     <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.exam_id)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Questions stored</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Question count</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.question_count)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Embeddings created</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Embedded count</p>
                     <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.embedded_count)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Status</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{formatValue(uploadResponse.status)}</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Duplicate count</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.duplicate_count)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Topic review count</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.topic_review_count)}</p>
                   </div>
                 </div>
                 {Array.isArray(uploadResponse.auto_filled_fields) && uploadResponse.auto_filled_fields.length > 0 && (
@@ -578,12 +582,20 @@ function UploadPage() {
                     <p className={`mt-2 text-2xl font-semibold ${uploadResponse.failed > 0 ? "text-rose-900" : "text-slate-900"}`}>{formatValue(uploadResponse.failed)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Total questions</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.total_question_count)}</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Question count</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.question_count ?? uploadResponse.total_question_count)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Embeddings</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.total_embedded_count)}</p>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Embedded count</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.embedded_count ?? uploadResponse.total_embedded_count)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Duplicate count</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.duplicate_count)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Topic review count</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.topic_review_count)}</p>
                   </div>
                 </div>
 
