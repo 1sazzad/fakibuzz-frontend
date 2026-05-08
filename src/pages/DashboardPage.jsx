@@ -1,41 +1,90 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { Badge, Card, ErrorMessage, PageHeader, ResponsiveContainer } from "../components/ui";
+
+const workflows = [
+  {
+    to: "/subjects",
+    title: "Subject Library",
+    description: "Search published subjects and browse previous-year questions.",
+    badge: "Start here",
+  },
+  {
+    to: "/search",
+    title: "Semantic Search",
+    description: "Find similar questions with natural-language queries.",
+    badge: "Vector search",
+  },
+  {
+    to: "/analysis",
+    title: "Topic Analysis",
+    description: "Review repeated topics, years, marks, and sample questions.",
+    badge: "Patterns",
+  },
+  {
+    to: "/predict",
+    title: "Predictions",
+    description: "See likely important topics ranked by confidence.",
+    badge: "Exam prep",
+  },
+  {
+    to: "/suggestions",
+    title: "Suggestions",
+    description: "Generate focused study suggestions and export them.",
+    badge: "Exportable",
+  },
+  {
+    to: "/generate-answer",
+    title: "Answer Builder",
+    description: "Draft exam-style answers from stored question context.",
+    badge: "Practice",
+  },
+];
 
 function DashboardPage() {
   const { user } = useAuth();
   const location = useLocation();
 
   return (
-    <main className="min-h-[calc(100vh-88px)] bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">Student Dashboard</p>
-          <h1 className="mt-3 text-3xl font-semibold text-slate-950">Welcome, {user?.full_name || "Student"}</h1>
-          <p className="mt-2 text-sm text-slate-500">Search questions, review predictions, and generate answers from stored exam data.</p>
-        </div>
+    <ResponsiveContainer>
+      <PageHeader
+        eyebrow="Student Dashboard"
+        title={`Welcome, ${user?.full_name || "Student"}`}
+        description="Search questions, review predictions, generate answers, and export focused study material from published exam data."
+        stats={
+          <>
+            <Card className="p-4">
+              <p className="text-sm text-slate-500">Workflows</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">{workflows.length}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-sm text-slate-500">Role</p>
+              <p className="mt-1 text-2xl font-semibold capitalize text-slate-950">{user?.role || "student"}</p>
+            </Card>
+            <Card className="p-4 sm:col-span-2">
+              <p className="text-sm text-slate-500">Account</p>
+              <p className="mt-1 truncate text-lg font-semibold text-slate-950">{user?.email || "Signed in"}</p>
+            </Card>
+          </>
+        }
+      />
 
-        {location.state?.message && (
-          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {location.state.message}
-          </p>
-        )}
+      <ErrorMessage tone="warning">{location.state?.message}</ErrorMessage>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link to="/search" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Search</h2>
-            <p className="mt-2 text-sm text-slate-500">Find similar questions from the vector store.</p>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {workflows.map((item) => (
+          <Link key={item.to} to={item.to} className="group">
+            <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:border-indigo-200 group-hover:shadow-md">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-950">{item.title}</h2>
+                <Badge tone="indigo">{item.badge}</Badge>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{item.description}</p>
+            </Card>
           </Link>
-          <Link to="/suggestions" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Suggestions</h2>
-            <p className="mt-2 text-sm text-slate-500">Review likely future questions by subject.</p>
-          </Link>
-          <Link to="/generate-answer" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Generate Answer</h2>
-            <p className="mt-2 text-sm text-slate-500">Build a simple answer using related stored questions.</p>
-          </Link>
-        </div>
+        ))}
       </section>
-    </main>
+    </ResponsiveContainer>
   );
 }
 

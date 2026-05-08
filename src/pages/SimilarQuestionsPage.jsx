@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiEndpoints } from "../api/api";
 import { useNavigate } from "react-router-dom";
+import { Badge, Button, Card, EmptyState, LoadingSpinner, PageHeader, ResponsiveContainer } from "../components/ui";
 
 function normalizeResults(payload) {
   return payload?.results || payload?.matches || payload?.questions || payload?.data || [];
@@ -21,7 +22,7 @@ function SimilarQuestionsPage() {
   useEffect(() => {
     let active = true;
 
-    apiEndpoints.getSubjects()
+    apiEndpoints.getSubjects({ status: "published" })
       .then((response) => {
         if (!active) {
           return;
@@ -77,42 +78,25 @@ function SimilarQuestionsPage() {
   }
 
   if (booting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        Loading search workspace...
-      </div>
-    );
+    return <LoadingSpinner label="Loading search workspace..." />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-950/20">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">Semantic search</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Find similar questions from the vector store</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                Search stored question embeddings with a natural-language query.
-              </p>
-            </div>
+    <ResponsiveContainer>
+      <PageHeader
+        eyebrow="Semantic search"
+        title="Find similar questions from the vector store"
+        description="Search stored question embeddings with a natural-language query and narrow results by subject."
+        actions={<Button onClick={() => navigate("/analysis")}>View analysis</Button>}
+      />
 
-            <button
-              onClick={() => navigate("/analysis")}
-              className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-            >
-              View analysis
-            </button>
-          </div>
-        </section>
-
-        <form onSubmit={fetchSimilarQuestions} className="grid gap-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card as="form" onSubmit={fetchSimilarQuestions} className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <label className="space-y-2 text-sm font-medium text-slate-700 lg:col-span-2">
             Search query
             <textarea
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="min-h-28 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="min-h-28 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 leading-6 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="Explain SEO"
             />
           </label>
@@ -122,7 +106,7 @@ function SimilarQuestionsPage() {
             <select
               value={subjectCode}
               onChange={(event) => setSubjectCode(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             >
               <option value="">All subjects</option>
               {subjects.map((subject) => (
@@ -141,54 +125,47 @@ function SimilarQuestionsPage() {
               max="20"
               value={topK}
               onChange={(event) => setTopK(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             />
           </label>
 
           <div className="flex flex-wrap items-center gap-3 lg:col-span-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
+            <Button type="submit" disabled={loading}>
               {loading ? "Searching..." : "Search similar questions"}
-            </button>
+            </Button>
             <span className="text-sm text-slate-500">{message}</span>
           </div>
-        </form>
+        </Card>
 
         <div className="grid gap-4">
           {results.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">
-              No similar questions yet. Run a search to populate results.
-            </div>
+            <EmptyState title="No similar questions yet" description="Run a search to populate semantic matches from the published question database." />
           ) : (
             results.map((result, index) => (
-              <article key={result.id || index} className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+              <Card as="article" key={result.id || index} className="transition hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Result {index + 1}</p>
-                    <h2 className="mt-2 text-xl font-semibold text-slate-950">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Result {index + 1}</p>
+                    <h2 className="mt-2 whitespace-pre-line break-words text-lg font-semibold leading-7 text-slate-950 sm:text-xl">
                       {result.question_text || result.question || result.main_question || "Similar question"}
                     </h2>
                   </div>
-                  <div className="rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-700">
+                  <Badge tone="indigo">
                     {result.score ?? result.similarity ?? result.confidence ?? result.distance ?? "Match"}
-                  </div>
+                  </Badge>
                 </div>
 
                 <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                  {result.subject_code && <span className="rounded-2xl bg-slate-100 px-3 py-2">{result.subject_code}</span>}
-                  {result.question_no && <span className="rounded-2xl bg-slate-100 px-3 py-2">{result.question_no}</span>}
-                  {result.topic && <span className="rounded-2xl bg-cyan-50 px-3 py-2 text-cyan-800">{result.topic}</span>}
-                  {result.exam_year && <span className="rounded-2xl bg-slate-100 px-3 py-2">{result.exam_year}</span>}
+                  {result.subject_code && <span className="rounded-xl bg-slate-100 px-3 py-2">{result.subject_code}</span>}
+                  {result.question_no && <span className="rounded-xl bg-slate-100 px-3 py-2">{result.question_no}</span>}
+                  {result.topic && <span className="rounded-xl bg-indigo-50 px-3 py-2 text-indigo-800">{result.topic}</span>}
+                  {result.exam_year && <span className="rounded-xl bg-slate-100 px-3 py-2">{result.exam_year}</span>}
                 </div>
-              </article>
+              </Card>
             ))
           )}
         </div>
-      </div>
-    </div>
+    </ResponsiveContainer>
   );
 }
 

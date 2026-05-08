@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { createAdminUser } from "../api/authApi";
+import { Button, Card, ErrorMessage } from "../components/ui";
 
 function getErrorMessage(error, fallback) {
   const detail = error.response?.data?.detail || error.response?.data?.message;
@@ -49,32 +50,34 @@ function AdminCreatePage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-88px)] bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
-        <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">Admin Setup</p>
+    <main className="min-h-[calc(100vh-65px)] bg-slate-50 px-4 py-8 sm:py-12">
+      <Card className="mx-auto max-w-2xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Admin Setup</p>
         <h1 className="mt-3 text-3xl font-semibold text-slate-950">Create admin account</h1>
         <p className="mt-2 text-sm text-slate-500">Use this for the first admin, or login as admin and create more from the dashboard.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
-          <input value={form.full_name} onChange={(event) => updateField("full_name", event.target.value)} required placeholder="Full name" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-          <input type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} required placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-          <input value={form.phone_number} onChange={(event) => updateField("phone_number", event.target.value)} required placeholder="Phone number" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-          <input type="password" value={form.password} onChange={(event) => updateField("password", event.target.value)} required minLength={6} placeholder="Password" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-          <input value={form.university_name} onChange={(event) => updateField("university_name", event.target.value)} placeholder="University name (optional)" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-          <input value={form.department} onChange={(event) => updateField("department", event.target.value)} placeholder="Department (optional)" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
+          <input aria-label="Full name" value={form.full_name} onChange={(event) => updateField("full_name", event.target.value)} required placeholder="Full name" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+          <input aria-label="Email" type="email" value={form.email} onChange={(event) => updateField("email", event.target.value)} required placeholder="Email" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+          <input aria-label="Phone number" value={form.phone_number} onChange={(event) => updateField("phone_number", event.target.value)} required placeholder="Phone number" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+          <input aria-label="Password" type="password" value={form.password} onChange={(event) => updateField("password", event.target.value)} required minLength={6} placeholder="Password" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+          <input aria-label="University name" value={form.university_name} onChange={(event) => updateField("university_name", event.target.value)} placeholder="University name (optional)" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+          <input aria-label="Department" value={form.department} onChange={(event) => updateField("department", event.target.value)} placeholder="Department (optional)" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
 
-          {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2">{error}</p>}
-          {message && <p className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 sm:col-span-2">{message}</p>}
+          <div className="sm:col-span-2">
+            <ErrorMessage>{error}</ErrorMessage>
+            <ErrorMessage tone="success">{message}</ErrorMessage>
+          </div>
 
-          <button type="submit" disabled={loading} className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 disabled:bg-slate-300 sm:col-span-2">
+          <Button type="submit" disabled={loading} className="sm:col-span-2">
             {loading ? "Creating..." : "Create admin"}
-          </button>
+          </Button>
         </form>
 
         <p className="mt-5 text-center text-sm text-slate-500">
-          Already created? <Link to="/login" className="font-semibold text-cyan-700">Login</Link>
+          Already created? <Link to="/login" className="font-semibold text-indigo-700">Login</Link>
         </p>
-      </section>
+      </Card>
     </main>
   );
 }

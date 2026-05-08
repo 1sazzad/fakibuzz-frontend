@@ -1,117 +1,113 @@
-# FakiBuzz! ISTian - Frontend
+# FakiBuzz! ISTian Frontend
 
-A React + Vite frontend for the FakiBuzz! ISTian exam-question intelligence system. The UI is aligned to the backend's subject-first workflow: students discover published data by subject, then search, analyze, predict, and generate answers. Admin exam ingestion is kept in a separate route.
+FakiBuzz! ISTian is a student-focused exam question analysis and prediction system. This repository contains the React frontend used by students and admins to search subjects, browse previous-year questions, review topic analysis, view predicted important questions, generate suggestions, and export results.
 
-## Routes
+## Frontend Features
 
-- `/` - Subject discovery and published question browser
-- `/search` - Semantic search for similar questions
-- `/analysis` - Topic analysis for a subject
-- `/predict` - Question prediction for a subject
-- `/answers` - Answer generation
-- `/admin/exams` - Admin exam ingestion
+- Student user login and registration
+- Admin login and protected admin routes
+- Subject search by subject code or name
+- Published question viewing by subject
+- Topic analysis with repeated topics, marks, and appeared years
+- Prediction result view for likely important topics or questions
+- Suggested questions based on subject and query
+- PDF and JSON export for suggestions
+- Answer generation workflow
+- Responsive UI for mobile, tablet, and desktop
+- User-friendly loading, error, and empty states
 
-Legacy redirect routes were removed to keep the frontend aligned with the current backend API.
+## Tech Stack
 
-## Backend Integration
+- React
+- Tailwind CSS
+- Vite
+- React Router
+- Axios
+- Fetch API
 
-The frontend service layer in [src/api/api.js](src/api/api.js) targets the current backend route groups:
-
-- `GET /health`
-- `GET /subjects/search?query=`
-- `GET /subjects/{subject_code}/overview`
-- `GET /subjects`
-- `GET /subjects/{subject_code}/questions`
-- `POST /search`
-- `GET /subjects/{subject_code}/analysis`
-- `GET /subjects/{subject_code}/prediction`
-- `POST /answers/generate`
-- `POST /admin/exams/import`
-- `POST /admin/exams/import-file`
-
-During local development, Vite proxies frontend requests from `/api/*` to `http://127.0.0.1:8000/*` (see `vite.config.js`).
-This avoids browser CORS issues for cross-origin admin `POST` routes.
-
-To override the API host directly, set `VITE_API_BASE_URL` in an `.env` file.
-
-The frontend does not currently surface the optional student upload or extraction workflow in the UI.
-
-## Project Structure
+## Folder Structure
 
 ```text
 frontend/
-├── src/
-│   ├── api/
-│   │   └── api.js
-│   ├── components/
-│   │   └── Navbar.jsx
-│   ├── pages/
-│   │   ├── QuestionsPage.jsx
-│   │   ├── SimilarQuestionsPage.jsx
-│   │   ├── TopicsPage.jsx
-│   │   ├── PredictionsPage.jsx
-│   │   ├── GenerateAnswerPage.jsx
-│   │   └── UploadPage.jsx
-│   ├── App.jsx
-│   ├── App.css
-│   ├── main.jsx
-│   └── index.css
-├── public/
-├── index.html
-├── vite.config.js
-├── eslint.config.js
-└── package.json
+  public/                 Static assets
+  src/
+    api/                  API clients and endpoint helpers
+    assets/               Frontend image and media assets
+    components/           Shared UI and layout components
+      ui/                 Reusable Button, Card, Badge, states, and containers
+    context/              Authentication context and hooks
+    pages/                Student and public pages
+      admin/              Admin dashboard and management pages
+    routes/               Protected route wrappers
+    App.jsx               Route definitions and app shell
+    main.jsx              React app entry point
+    index.css             Tailwind and global styles
+  index.html              Vite HTML entry
+  vite.config.js          Vite configuration
+  package.json            Scripts and dependencies
 ```
 
-## Setup
+## Environment Variables
 
-### Prerequisites
+Create a local `.env` file in the frontend project root:
 
-- Node.js 16 or higher
-- npm
-- Backend server running on `http://127.0.0.1:8000`
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
 
-### Install
+Use placeholders only in shared documentation. Do not commit real environment values.
+
+## Installation
 
 ```bash
 npm install
-```
-
-### Run
-
-```bash
 npm run dev
 ```
 
-The app runs at `http://localhost:5173`.
+The Vite development server usually runs at:
 
-### Build
+```text
+http://localhost:5173
+```
+
+## Build
 
 ```bash
 npm run build
 ```
 
-### Preview
+## Preview
 
 ```bash
 npm run preview
 ```
 
-### Lint
+## API Configuration
 
-```bash
-npm run lint
-```
+The backend base URL should be configured through the `.env` file using `VITE_API_BASE_URL`. Avoid hardcoding backend URLs in components or pages. API calls should go through the shared API helpers in `src/api/` whenever possible.
 
-## Frontend Behavior
+## Security Notes
 
-- The home page now acts as subject discovery, not legacy question browsing.
-- Questions, analysis, and prediction pages load published data only.
-- The admin upload page uses `POST /admin/exams/import` for structured JSON and `POST /admin/exams/import-file` for JSON files.
-- Navigation has been trimmed to the active routes only.
+- Never commit `.env` files.
+- Never expose API keys, JWT secrets, database credentials, or production credentials in frontend code.
+- Never store real admin credentials in the repository.
+- Use `.env.example` for placeholder values only.
+- Keep secrets on the backend or in a secure deployment environment.
 
-## Notes
+## Contribution and Development Guidelines
 
-- Published data is the default student-facing source.
-- Subject discovery uses `GET /subjects/search` and `GET /subjects/{subject_code}/overview`.
-- Answer generation uses `POST /answers/generate` with related published questions as context.
+- Keep components reusable and easy to compose.
+- Keep UI responsive across mobile, tablet, and desktop screens.
+- Avoid hardcoded backend URLs.
+- Use loading, error, and empty states for API-driven pages.
+- Keep API endpoint names consistent with the backend.
+- Prefer small, focused components over duplicated JSX.
+- Test important user flows before submitting changes.
+
+## Known Limitations and Future Improvements
+
+- Better dashboard UI with richer student progress insights
+- More mobile optimization for dense admin views
+- Improved export preview before PDF download
+- Notification or toast system for success and error feedback
+- More detailed client-side validation for forms

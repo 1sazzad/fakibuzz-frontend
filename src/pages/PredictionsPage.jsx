@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiEndpoints } from "../api/api";
 import { useNavigate } from "react-router-dom";
+import { Badge, Button, Card, EmptyState, ErrorMessage, LoadingSpinner, PageHeader, ResponsiveContainer } from "../components/ui";
 
 function normalizeSubjects(payload) {
   const rawSubjects = Array.isArray(payload) ? payload : payload?.subjects || payload?.items || payload?.data || [];
@@ -48,7 +49,7 @@ function PredictionsPage() {
 
     async function initialize() {
       try {
-        const response = await apiEndpoints.getSubjects();
+        const response = await apiEndpoints.getSubjects({ status: "published" });
 
         if (!active) {
           return;
@@ -172,49 +173,32 @@ function PredictionsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        Loading predictions...
-      </div>
-    );
+    return <LoadingSpinner label="Loading predictions..." />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-950/20">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">Prediction engine</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Rank likely future questions by confidence</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                Uses GET /subjects/{"{subject_code}"}/prediction and turns the confidence score into a friendly importance label.
-              </p>
-            </div>
+    <ResponsiveContainer>
+      <PageHeader
+        eyebrow="Prediction engine"
+        title="Rank likely future questions by confidence"
+        description="View dynamic confidence scores from approved analysis and jump straight into answer practice."
+        actions={<Button onClick={() => navigate("/answers")}>Open answer builder</Button>}
+      />
 
-            <button
-              onClick={() => navigate("/answers")}
-              className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-            >
-              Open answer builder
-            </button>
-          </div>
-        </section>
-
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+        <Card>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-slate-950">Select a subject</h2>
               <p className="mt-1 text-sm text-slate-500">Pick a subject to load predicted questions and confidence scores.</p>
             </div>
 
-            <div className="min-w-72">
+            <div className="w-full lg:max-w-md">
               <label className="block text-sm font-medium text-slate-700">Subject code</label>
               {subjects.length > 0 ? (
                 <select
                   value={selectedSubject}
                   onChange={handleSubjectChange}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="">Select a subject</option>
                   {subjects.map((subject) => (
@@ -228,31 +212,21 @@ function PredictionsPage() {
                   value={selectedSubject}
                   onChange={handleSubjectInputChange}
                   placeholder="Enter subject code, e.g. CSE-421"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               )}
-              <button
-                type="button"
-                onClick={handleLoadPredictions}
-                className="mt-3 w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
+              <Button type="button" onClick={handleLoadPredictions} className="mt-3 w-full">
                 Load predictions
-              </button>
+              </Button>
             </div>
           </div>
-        </section>
+        </Card>
 
-        {message && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {message}
-          </div>
-        )}
+        <ErrorMessage>{message}</ErrorMessage>
 
         <div className="grid gap-4">
           {predictions.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">
-              No predictions found for the selected subject.
-            </div>
+            <EmptyState title="No predictions found" description="The selected subject may need published questions and approved topic analysis before predictions are available." />
           ) : (
             predictions.map((item, index) => {
               const normalizedScore = normalizeScore(item.confidence_score ?? item.confidence ?? item.score);
@@ -260,44 +234,74 @@ function PredictionsPage() {
               const importanceLabel = getImportanceLabel(normalizedScore);
 
               return (
-                <article key={item.id || index} className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+                <Card as="article" key={item.id || index} className="transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Predicted question {index + 1}</p>
-                      <h2 className="mt-2 text-xl font-semibold text-slate-950">{item.question || item.question_text || "Predicted question"}</h2>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Prediction {index + 1}</p>
+                      <h2 className="mt-2 whitespace-pre-line break-words text-lg font-semibold leading-7 text-slate-950 sm:text-xl">
+                        {item.predicted_topic || item.topic || item.question || item.question_text || "Predicted topic"}
+                      </h2>
                     </div>
-                    <div className="rounded-full bg-cyan-50 px-3 py-1 text-sm font-medium text-cyan-700">{scoreText}</div>
+                    <Badge tone="indigo">{scoreText}</Badge>
+                  </div>
+
+                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-indigo-500 transition-all"
+                      style={{ width: `${Math.min(Math.max(normalizedScore || 0, 0), 100)}%` }}
+                    />
                   </div>
 
                   <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                    <div className="rounded-xl bg-slate-50 px-3 py-2">
                       <p className="text-slate-400">Importance</p>
                       <p className="font-semibold text-slate-950">{importanceLabel}</p>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                    <div className="rounded-xl bg-slate-50 px-3 py-2">
                       <p className="text-slate-400">Topic</p>
-                      <p className="font-semibold text-slate-950">{item.topic || "N/A"}</p>
+                      <p className="font-semibold text-slate-950">{item.predicted_topic || item.topic || "N/A"}</p>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                    <div className="rounded-xl bg-slate-50 px-3 py-2">
                       <p className="text-slate-400">Subject</p>
                       <p className="font-semibold text-slate-950">{item.subject_code || selectedSubject}</p>
                     </div>
                   </div>
 
-                  <button
+                  {item.reason && (
+                    <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+                      <span className="font-semibold text-slate-950">Reason:</span> {item.reason}
+                    </p>
+                  )}
+
+                  {Array.isArray(item.related_questions) && item.related_questions.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-semibold text-slate-950">Related questions</p>
+                      {item.related_questions.slice(0, 4).map((question, questionIndex) => (
+                        <div key={question.id || questionIndex} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                          <p className="whitespace-pre-line break-words leading-6">{question.question_text || question.text || question.question || question}</p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                            {question.exam_year && <span>{question.exam_year}</span>}
+                            {question.question_no && <span>{question.question_no}</span>}
+                            {question.marks && <span>{question.marks} marks</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <Button
                     type="button"
-                    onClick={() => navigate("/answers", { state: { question: item.question || item.question_text || "", subject_code: item.subject_code || selectedSubject } })}
-                    className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    onClick={() => navigate("/answers", { state: { question: item.predicted_topic || item.question || item.question_text || "", subject_code: item.subject_code || selectedSubject } })}
+                    className="mt-5"
                   >
                     Generate answer
-                  </button>
-                </article>
+                  </Button>
+                </Card>
               );
             })
           )}
         </div>
-      </div>
-    </div>
+    </ResponsiveContainer>
   );
 }
 

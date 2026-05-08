@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { apiEndpoints } from "../api/api";
+import { Badge, Button, Card, ErrorMessage, PageHeader, ResponsiveContainer } from "../components/ui";
 
 function GenerateAnswerPage() {
   const location = useLocation();
@@ -15,7 +16,7 @@ function GenerateAnswerPage() {
   useEffect(() => {
     let active = true;
 
-    apiEndpoints.getSubjects()
+    apiEndpoints.getSubjects({ status: "published" })
       .then((response) => {
         if (!active) {
           return;
@@ -71,15 +72,15 @@ function GenerateAnswerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 lg:px-8">
+    <ResponsiveContainer>
       <div className="mx-auto max-w-4xl space-y-6">
-        <section className="rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-950/20">
-          <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">Answer generator</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight">Generate exam-style answers with context</h1>
-          <p className="mt-3 max-w-3xl text-sm text-slate-300">Generate a simple answer from related stored questions.</p>
-        </section>
+        <PageHeader
+          eyebrow="Answer generator"
+          title="Generate exam-style answers with context"
+          description="Draft a focused answer from the selected subject and related stored questions."
+        />
 
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+        <Card>
           <form onSubmit={handleGenerateAnswer} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-slate-700 sm:col-span-2">
@@ -88,7 +89,7 @@ function GenerateAnswerPage() {
                   value={question}
                   onChange={(event) => setQuestion(event.target.value)}
                   placeholder="What is SEO?"
-                  className="min-h-32 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="min-h-32 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 leading-6 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
 
@@ -99,7 +100,7 @@ function GenerateAnswerPage() {
                   onChange={(event) => setSubjectCode(event.target.value)}
                   placeholder="CSE-421"
                   list="subject-list"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
 
@@ -108,7 +109,7 @@ function GenerateAnswerPage() {
                 <select
                   value={answerType}
                   onChange={(event) => setAnswerType(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="5_mark">5 Mark Answer</option>
                   <option value="10_mark">10 Mark Answer</option>
@@ -119,13 +120,9 @@ function GenerateAnswerPage() {
               </label>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
+            <Button type="submit" disabled={loading}>
               {loading ? "Generating..." : "Generate answer"}
-            </button>
+            </Button>
           </form>
 
           <datalist id="subject-list">
@@ -136,25 +133,23 @@ function GenerateAnswerPage() {
             ))}
           </datalist>
 
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            {message}
+          <div className="mt-4">
+            <ErrorMessage tone={answer.startsWith("Answer generation failed") ? "error" : "info"}>{message}</ErrorMessage>
           </div>
 
           {answer && (
-            <div className="mt-6 rounded-[1.5rem] border border-cyan-100 bg-cyan-50 p-5">
+            <div className="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-slate-950">Generated answer</h2>
-                <span className="rounded-full bg-white px-3 py-1 text-sm font-medium text-cyan-700">
-                  {answerType.replace("_", " ")}
-                </span>
+                <Badge tone="indigo">{answerType.replace("_", " ")}</Badge>
               </div>
 
-              <p className="mt-4 whitespace-pre-line text-slate-700">{answer}</p>
+              <p className="mt-4 whitespace-pre-line break-words text-sm leading-7 text-slate-700 sm:text-base">{answer}</p>
             </div>
           )}
-        </div>
+        </Card>
       </div>
-    </div>
+    </ResponsiveContainer>
   );
 }
 

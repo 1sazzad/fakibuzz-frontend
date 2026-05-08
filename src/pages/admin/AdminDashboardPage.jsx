@@ -2,6 +2,14 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { createAdminUser } from "../../api/authApi";
 import { useAuth } from "../../context/useAuth";
+import { Badge, Button, Card, ErrorMessage, PageHeader, ResponsiveContainer } from "../../components/ui";
+
+const adminWorkflows = [
+  { to: "/admin/upload", title: "Upload Questions", description: "Import admin exam JSON and create embeddings.", badge: "Ingest" },
+  { to: "/admin/topic-review", title: "Topic Review", description: "Check missing or generated topics before publishing.", badge: "Review" },
+  { to: "/admin/questions", title: "Manage Questions", description: "Review and maintain stored question data.", badge: "Data" },
+  { to: "/admin/subjects", title: "Manage Subjects", description: "Publish subjects for student access.", badge: "Publish" },
+];
 
 function getErrorMessage(error, fallback) {
   const detail = error.response?.data?.detail || error.response?.data?.message;
@@ -52,55 +60,50 @@ function AdminDashboardPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-88px)] bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">Admin Dashboard</p>
-          <h1 className="mt-3 text-3xl font-semibold text-slate-950">Welcome, {user?.full_name || "Admin"}</h1>
-          <p className="mt-2 text-sm text-slate-500">Manage uploaded exams, questions, and published subjects.</p>
-        </div>
+    <ResponsiveContainer>
+      <PageHeader
+        eyebrow="Admin Dashboard"
+        title={`Welcome, ${user?.full_name || "Admin"}`}
+        description="Manage uploaded exams, question records, topic review, and published subjects."
+      />
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Link to="/admin/upload" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Upload Questions</h2>
-            <p className="mt-2 text-sm text-slate-500">Import admin exam JSON and create embeddings.</p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {adminWorkflows.map((item) => (
+          <Link key={item.to} to={item.to} className="group">
+            <Card className="h-full transition group-hover:-translate-y-0.5 group-hover:border-indigo-200 group-hover:shadow-md">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-950">{item.title}</h2>
+                <Badge tone="indigo">{item.badge}</Badge>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{item.description}</p>
+            </Card>
           </Link>
-          <Link to="/admin/topic-review" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Topic Review</h2>
-            <p className="mt-2 text-sm text-slate-500">Check missing or generated topics before publishing.</p>
-          </Link>
-          <Link to="/admin/questions" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Manage Questions</h2>
-            <p className="mt-2 text-sm text-slate-500">Review and maintain stored question data.</p>
-          </Link>
-          <Link to="/admin/subjects" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300">
-            <h2 className="text-lg font-semibold text-slate-950">Manage Subjects</h2>
-            <p className="mt-2 text-sm text-slate-500">Publish subjects for student access.</p>
-          </Link>
-        </div>
+        ))}
+      </div>
 
-        <form onSubmit={handleCreateAdmin} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+        <Card as="form" onSubmit={handleCreateAdmin}>
           <h2 className="text-2xl font-semibold text-slate-950">Create admin</h2>
           <p className="mt-1 text-sm text-slate-500">Create the first admin or add another admin when you are already authenticated as admin.</p>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            <input value={adminForm.full_name} onChange={(event) => updateAdminField("full_name", event.target.value)} required placeholder="Full name" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-            <input type="email" value={adminForm.email} onChange={(event) => updateAdminField("email", event.target.value)} required placeholder="Email" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-            <input value={adminForm.phone_number} onChange={(event) => updateAdminField("phone_number", event.target.value)} required placeholder="Phone number" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-            <input type="password" value={adminForm.password} onChange={(event) => updateAdminField("password", event.target.value)} required minLength={6} placeholder="Password" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-            <input value={adminForm.university_name} onChange={(event) => updateAdminField("university_name", event.target.value)} placeholder="University name (optional)" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
-            <input value={adminForm.department} onChange={(event) => updateAdminField("department", event.target.value)} placeholder="Department (optional)" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400" />
+            <input aria-label="Full name" value={adminForm.full_name} onChange={(event) => updateAdminField("full_name", event.target.value)} required placeholder="Full name" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            <input aria-label="Email" type="email" value={adminForm.email} onChange={(event) => updateAdminField("email", event.target.value)} required placeholder="Email" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            <input aria-label="Phone number" value={adminForm.phone_number} onChange={(event) => updateAdminField("phone_number", event.target.value)} required placeholder="Phone number" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            <input aria-label="Password" type="password" value={adminForm.password} onChange={(event) => updateAdminField("password", event.target.value)} required minLength={6} placeholder="Password" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            <input aria-label="University name" value={adminForm.university_name} onChange={(event) => updateAdminField("university_name", event.target.value)} placeholder="University name (optional)" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            <input aria-label="Department" value={adminForm.department} onChange={(event) => updateAdminField("department", event.target.value)} placeholder="Department (optional)" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
           </div>
 
-          {adminError && <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{adminError}</p>}
-          {adminMessage && <p className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{adminMessage}</p>}
+          <div className="mt-4">
+            <ErrorMessage>{adminError}</ErrorMessage>
+            <ErrorMessage tone="success">{adminMessage}</ErrorMessage>
+          </div>
 
-          <button type="submit" disabled={creatingAdmin} className="mt-5 rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 disabled:bg-slate-300">
+          <Button type="submit" disabled={creatingAdmin} className="mt-5">
             {creatingAdmin ? "Creating..." : "Create admin account"}
-          </button>
-        </form>
-      </section>
-    </main>
+          </Button>
+        </Card>
+    </ResponsiveContainer>
   );
 }
 

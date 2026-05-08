@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiEndpoints } from "../api/api";
 import { useNavigate } from "react-router-dom";
+import { Badge, Button, Card, EmptyState, ErrorMessage, LoadingSpinner, PageHeader, ResponsiveContainer } from "../components/ui";
 
 function normalizeSubjects(payload) {
   const rawSubjects = Array.isArray(payload) ? payload : payload?.subjects || payload?.items || payload?.data || [];
@@ -47,7 +48,7 @@ function TopicsPage() {
 
     async function initialize() {
       try {
-        const response = await apiEndpoints.getSubjects();
+        const response = await apiEndpoints.getSubjects({ status: "published" });
 
         if (!active) {
           return;
@@ -152,49 +153,32 @@ function TopicsPage() {
   const topicEntries = extractTopics(analysis);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        Loading analysis...
-      </div>
-    );
+    return <LoadingSpinner label="Loading analysis..." />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-950/20">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">Subject analysis</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Understand repeated topics and exam patterns</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                View frequency, marks, appeared years, and sample questions for one subject.
-              </p>
-            </div>
+    <ResponsiveContainer>
+      <PageHeader
+        eyebrow="Subject analysis"
+        title="Understand repeated topics and exam patterns"
+        description="View frequency, marks, appeared years, and sample questions for one subject."
+        actions={<Button onClick={() => navigate("/predict")}>View predictions</Button>}
+      />
 
-            <button
-              onClick={() => navigate("/predict")}
-              className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-            >
-              View predictions
-            </button>
-          </div>
-        </section>
-
-        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+        <Card>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-slate-950">Choose a subject</h2>
               <p className="mt-1 text-sm text-slate-500">Select a subject code to load the analysis response.</p>
             </div>
 
-            <div className="min-w-72">
+            <div className="w-full lg:max-w-md">
               <label className="block text-sm font-medium text-slate-700">Subject code</label>
               {subjects.length > 0 ? (
                 <select
                   value={selectedSubject}
                   onChange={handleSubjectChange}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="">Select a subject</option>
                   {subjects.map((subject) => (
@@ -208,35 +192,27 @@ function TopicsPage() {
                   value={selectedSubject}
                   onChange={handleSubjectInputChange}
                   placeholder="Enter subject code, e.g. CSE-421"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
               )}
-              <button
-                type="button"
-                onClick={handleLoadAnalysis}
-                className="mt-3 w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
+              <Button type="button" onClick={handleLoadAnalysis} className="mt-3 w-full">
                 Load analysis
-              </button>
+              </Button>
             </div>
           </div>
-        </section>
+        </Card>
 
-        {message && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {message}
-          </div>
-        )}
+        <ErrorMessage>{message}</ErrorMessage>
 
         {analysis ? (
           <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <Card>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Topic frequency</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Topic frequency</p>
                   <h2 className="mt-2 text-2xl font-semibold text-slate-950">Most repeated topics</h2>
                 </div>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">{selectedSubject}</div>
+                <Badge>{selectedSubject}</Badge>
               </div>
 
               <div className="mt-5 space-y-3">
@@ -244,28 +220,35 @@ function TopicsPage() {
                   topicEntries.map((topic, index) => (
                     <article key={topic.topic || index} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-center justify-between gap-4">
-                        <h3 className="font-semibold text-slate-950">{topic.topic || topic.name || `Topic ${index + 1}`}</h3>
-                        <span className="rounded-full bg-cyan-100 px-3 py-1 text-sm font-medium text-cyan-800">
-                          {topic.frequency ?? topic.count ?? topic.score ?? "-"}
-                        </span>
+                        <h3 className="break-words font-semibold text-slate-950">{topic.topic || topic.name || `Topic ${index + 1}`}</h3>
+                        <Badge tone="indigo">{topic.frequency ?? topic.count ?? topic.score ?? "-"}</Badge>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">
                         Appeared years: {Array.isArray(topic.appeared_years) ? topic.appeared_years.join(", ") : topic.appeared_years || topic.years || "N/A"}
                       </p>
                       <p className="text-sm text-slate-600">Total marks: {topic.total_marks ?? topic.marks ?? "N/A"}</p>
+                      {topic.probability && <p className="text-sm text-slate-600">Probability: {topic.probability}</p>}
+                      {Array.isArray(topic.important_questions) && topic.important_questions.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm font-semibold text-slate-900">Important questions</p>
+                          {topic.important_questions.slice(0, 3).map((question, questionIndex) => (
+                            <p key={question.id || questionIndex} className="whitespace-pre-line break-words rounded-2xl bg-white px-3 py-2 text-sm leading-6 text-slate-700">
+                              {question.question_text || question.text || question.question || question}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </article>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-500">
-                    No topic summary returned for this subject.
-                  </div>
+                  <EmptyState title="No topic summary returned" description="This subject may need approved topic analysis before a frequency summary is available." />
                 )}
               </div>
-            </section>
+            </Card>
 
-            <section className="space-y-4 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <Card className="space-y-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Analysis snapshot</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Analysis snapshot</p>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-950">What the backend returned</h2>
               </div>
 
@@ -305,22 +288,19 @@ function TopicsPage() {
                   <h3 className="text-lg font-semibold text-slate-950">Sample questions</h3>
                   <div className="mt-3 space-y-2">
                     {analysis.sample_questions.map((question, index) => (
-                      <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                      <div key={index} className="break-words rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
                         {question.question_text || question.text || question}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </section>
+            </Card>
           </div>
         ) : (
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">
-            No analysis data available yet.
-          </div>
+          <EmptyState title="No analysis data available yet" description="Choose a subject and load analysis to review repeated topics." />
         )}
-      </div>
-    </div>
+    </ResponsiveContainer>
   );
 }
 

@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  button,
+  input,
+  textarea,
+  select {
+    font-family: "Noto Sans Bengali", "Noto Sans", "SolaimanLipi", "Arial", sans-serif;
+  }
+
+  body {
+    margin: 0;
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  input,
+  textarea,
+  select {
+    min-width: 0;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}

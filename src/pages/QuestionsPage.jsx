@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiEndpoints } from "../api/api";
+import { Badge, Button, Card, EmptyState, LoadingSpinner, PageHeader, ResponsiveContainer } from "../components/ui";
 
 function normalizeQuestions(payload) {
-  return payload?.questions || payload?.items || payload?.data || payload || [];
+  const items = payload?.questions || payload?.items || payload?.data || payload || [];
+  return Array.isArray(items) ? items : [];
 }
 
 function normalizeTopics(payload) {
@@ -28,7 +30,7 @@ function QuestionsPage() {
 
     async function initialize() {
       try {
-        const response = await apiEndpoints.getSubjects();
+        const response = await apiEndpoints.getSubjects({ status: "published" });
 
         if (!active) {
           return;
@@ -142,53 +144,31 @@ function QuestionsPage() {
   const availableYears = overview?.available_years || [];
 
   if (booting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        Loading subjects...
-      </div>
-    );
+    return <LoadingSpinner label="Loading subjects..." />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <section className="rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-950/20">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-cyan-300/80">Subject discovery</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">Find published data by subject code or name</h1>
-              <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                Search subjects first, then browse the published questions, topic summary, and prediction availability.
-              </p>
-            </div>
+    <ResponsiveContainer>
+        <PageHeader
+          eyebrow="Subject discovery"
+          title="Find published data by subject code or name"
+          description="Search subjects first, then browse previous-year questions, topic summaries, and prediction availability."
+          actions={
+            <>
+              <Button type="button" onClick={() => navigate("/search")}>Semantic search</Button>
+              <Button type="button" variant="secondary" onClick={() => navigate("/analysis")}>View analysis</Button>
+            </>
+          }
+        />
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/search")}
-                className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
-              >
-                Semantic search
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/analysis")}
-                className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-              >
-                View analysis
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <form onSubmit={handleSearch} className="grid gap-4 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card as="form" onSubmit={handleSearch} className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <label className="space-y-2 text-sm font-medium text-slate-700 lg:col-span-2">
             Search subject
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="CSE-421 or E-Commerce and Web Engineering"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             />
           </label>
 
@@ -197,7 +177,7 @@ function QuestionsPage() {
             <select
               value={selectedSubject}
               onChange={handleSubjectChange}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
             >
               <option value="">Select a subject</option>
               {subjects.map((subject) => (
@@ -209,19 +189,15 @@ function QuestionsPage() {
           </label>
 
           <div className="flex flex-wrap items-center gap-3 lg:col-span-2">
-            <button
-              type="submit"
-              disabled={searching}
-              className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
+            <Button type="submit" disabled={searching}>
               {searching ? "Searching..." : "Search subject"}
-            </button>
+            </Button>
             <span className="text-sm text-slate-500">{message}</span>
           </div>
-        </form>
+        </Card>
 
         {searchResult && (
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Search result</p>
@@ -229,7 +205,7 @@ function QuestionsPage() {
                   {searchResult.subject_code || "Subject lookup"}
                 </h2>
               </div>
-              <span className={`rounded-full px-3 py-1 text-sm font-medium ${searchResult.found ? "bg-cyan-50 text-cyan-700" : "bg-amber-50 text-amber-700"}`}>
+              <span className={`rounded-full px-3 py-1 text-sm font-medium ${searchResult.found ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"}`}>
                 {searchResult.found ? "Published" : "Not found"}
               </span>
             </div>
@@ -256,12 +232,12 @@ function QuestionsPage() {
                 </p>
               </div>
             </div>
-          </section>
+          </Card>
         )}
 
         {overview ? (
           <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <Card>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Overview</p>
@@ -272,9 +248,9 @@ function QuestionsPage() {
                     {overview.subject_name || subjects.find((subject) => subject.subject_code === selectedSubject)?.subject_name || "Published subject"}
                   </p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+                <Badge>
                   Prediction {overview.prediction_available ? "available" : "not ready"}
-                </span>
+                </Badge>
               </div>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -297,17 +273,17 @@ function QuestionsPage() {
               <div className="mt-5 flex flex-wrap gap-2">
                 {topicEntries.length > 0 ? (
                   topicEntries.slice(0, 6).map((topic, index) => (
-                    <span key={topic.topic || topic.name || index} className="rounded-full bg-cyan-50 px-3 py-1 text-sm text-cyan-700">
+                    <Badge key={topic.topic || topic.name || index} tone="indigo">
                       {topic.topic || topic.name || topic}
-                    </span>
+                    </Badge>
                   ))
                 ) : (
                   <span className="text-sm text-slate-500">No topic summary returned.</span>
                 )}
               </div>
-            </section>
+            </Card>
 
-            <section className="space-y-4 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <Card className="space-y-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Next steps</p>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-950">Use the subject in other workflows</h2>
@@ -317,7 +293,7 @@ function QuestionsPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/search")}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50"
                 >
                   <p className="text-sm font-semibold text-slate-950">Semantic search</p>
                   <p className="mt-1 text-sm text-slate-500">Find similar published questions.</p>
@@ -325,7 +301,7 @@ function QuestionsPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/analysis")}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50"
                 >
                   <p className="text-sm font-semibold text-slate-950">Topic analysis</p>
                   <p className="mt-1 text-sm text-slate-500">Review repeated topics and marks.</p>
@@ -333,7 +309,7 @@ function QuestionsPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/predict")}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50"
                 >
                   <p className="text-sm font-semibold text-slate-950">Predictions</p>
                   <p className="mt-1 text-sm text-slate-500">See likely exam topics.</p>
@@ -341,69 +317,64 @@ function QuestionsPage() {
                 <button
                   type="button"
                   onClick={() => navigate("/answers")}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-cyan-200 hover:bg-cyan-50"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50"
                 >
                   <p className="text-sm font-semibold text-slate-950">Answer help</p>
                   <p className="mt-1 text-sm text-slate-500">Draft an exam-style answer.</p>
                 </button>
               </div>
-            </section>
+            </Card>
           </div>
         ) : (
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 text-slate-500 shadow-sm">
-            No published subject data loaded yet.
-          </div>
+          <EmptyState title="No published subject data loaded yet" description="Search for a subject code or choose one from the list to load details." />
         )}
 
-        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">Published questions</p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-950">Questions for the selected subject</h2>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-600">
+            <Badge>
               {loadingSubject ? "Refreshing..." : `${questions.length} loaded`}
-            </span>
+            </Badge>
           </div>
 
           <div className="mt-5 grid gap-4">
             {questions.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-500">
-                No published questions available for this subject.
-              </div>
+              <EmptyState title="No published questions" description="This subject is published, but no question records were returned." />
             ) : (
               questions.map((question, index) => (
                 <article key={question.id || `${question.question_no || index}-${index}`} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.24em] text-cyan-700">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
                         {question.subject_code || selectedSubject || "Published subject"}
                       </p>
                       <h3 className="mt-2 text-xl font-semibold text-slate-950">
                         {question.question_no ? `Question ${question.question_no}` : `Question ${index + 1}`}
                       </h3>
                     </div>
-                    <div className="rounded-full bg-white px-3 py-1 text-sm text-slate-600">
+                    <Badge>
                       {question.marks ?? "-"} marks
-                    </div>
+                    </Badge>
                   </div>
 
-                  <p className="mt-4 whitespace-pre-line text-slate-700">
+                  <p className="mt-4 whitespace-pre-line break-words text-sm leading-7 text-slate-700 sm:text-base">
                     {question.question_text || question.text || "No question text provided."}
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
                     {question.exam_name && <span className="rounded-full bg-white px-3 py-1">{question.exam_name}</span>}
                     {question.exam_year && <span className="rounded-full bg-white px-3 py-1">{question.exam_year}</span>}
-                    {question.topic && <span className="rounded-full bg-cyan-50 px-3 py-1 text-cyan-700">{question.topic}</span>}
+                    {question.topic && <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">{question.topic}</span>}
                   </div>
                 </article>
               ))
             )}
           </div>
-        </section>
-      </div>
-    </div>
+        </Card>
+    </ResponsiveContainer>
   );
 }
 

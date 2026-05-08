@@ -179,6 +179,7 @@ function UploadPage() {
   const [publishing, setPublishing] = useState(false);
   const [publishSubjectCode, setPublishSubjectCode] = useState("");
   const [publishMessage, setPublishMessage] = useState("");
+  const [publishResult, setPublishResult] = useState(null);
   const [uploadResponse, setUploadResponse] = useState(null);
   const [isBatchMode, setIsBatchMode] = useState(false);
 
@@ -268,6 +269,13 @@ function UploadPage() {
     const file = event.target.files?.[0];
 
     if (!file) {
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      setJsonError("Only .json files are supported for admin import.");
+      setJsonFile(null);
+      event.target.value = "";
       return;
     }
 
@@ -457,11 +465,13 @@ function UploadPage() {
     }
 
     setPublishing(true);
+    setPublishResult(null);
     setPublishMessage(`Publishing subject data for ${subjectCode}...`);
 
     try {
       const response = await apiEndpoints.publishSubject(subjectCode);
       const data = response.data || {};
+      setPublishResult(data);
       setPublishMessage(formatValue(data.message, `Subject ${subjectCode} published successfully.`));
     } catch (error) {
       console.error(error);
@@ -534,11 +544,11 @@ function UploadPage() {
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Question count</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.question_count)}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.question_count ?? uploadResponse.total_question_count)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Embedded count</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.embedded_count)}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.embedded_count ?? uploadResponse.total_embedded_count)}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Duplicate count</p>
@@ -546,7 +556,7 @@ function UploadPage() {
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Topic review count</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.topic_review_count)}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.topic_review_count ?? uploadResponse.total_topic_review_count)}</p>
                   </div>
                 </div>
                 {Array.isArray(uploadResponse.auto_filled_fields) && uploadResponse.auto_filled_fields.length > 0 && (
@@ -595,7 +605,7 @@ function UploadPage() {
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Topic review count</p>
-                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.topic_review_count)}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{formatValue(uploadResponse.topic_review_count ?? uploadResponse.total_topic_review_count)}</p>
                   </div>
                 </div>
 
@@ -686,7 +696,7 @@ function UploadPage() {
                   {isBatchMode ? "Batch upload" : "Exam details"}
                 </h2>
                 <p className="text-sm text-slate-500">
-                  {isBatchMode ? "Submit multiple exams at once from JSON." : "These fields are sent directly to POST /admin/exams/import."}
+                  {isBatchMode ? "Submit multiple exams at once from JSON." : "These fields are sent directly to POST /exams/import-json."}
                 </p>
               </div>
               {!isBatchMode && (
@@ -927,6 +937,22 @@ function UploadPage() {
                 {publishing ? "Publishing..." : "Publish subject"}
               </button>
               {publishMessage && <p>{formatValue(publishMessage)}</p>}
+              {publishResult && (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-white px-3 py-2">
+                    <p className="text-xs text-slate-500">Exams published</p>
+                    <p className="font-semibold text-slate-950">{formatValue(publishResult.exams_published)}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white px-3 py-2">
+                    <p className="text-xs text-slate-500">Questions published</p>
+                    <p className="font-semibold text-slate-950">{formatValue(publishResult.questions_published)}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white px-3 py-2">
+                    <p className="text-xs text-slate-500">Embedded</p>
+                    <p className="font-semibold text-slate-950">{formatValue(publishResult.embedded_count)}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="rounded-[1.5rem] border border-cyan-100 bg-cyan-50 p-5 text-sm text-cyan-900">

@@ -81,6 +81,19 @@ function encodePath(value) {
   return encodeURIComponent(String(value).trim());
 }
 
+function buildQuery(params = {}) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
+
 export const apiEndpoints = {
   register: (payload) => API.post("/auth/register", payload),
   login: (payload) => API.post("/auth/login", payload),
@@ -92,14 +105,27 @@ export const apiEndpoints = {
   getSubjectQuestions: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/questions`),
   searchQuestions: (payload) => API.post("/search", payload),
   getSubjectAnalysis: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/analysis`),
-  getSubjectPrediction: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/prediction`),
-  getSuggestions: (payload) => API.post("/suggestions", payload),
+  getSubjectPrediction: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/predictions`),
+  getSuggestions: ({ subject_code, query, top_k }) =>
+    API.get(`/subjects/${encodePath(subject_code)}/suggestions`, { params: { query, top_k } }),
+  exportSuggestionsJson: ({ subject_code, query, top_k }) =>
+    API.get(`/subjects/${encodePath(subject_code)}/suggestions/export/json`, {
+      params: { query, top_k },
+      responseType: "blob",
+    }),
+  exportSuggestionsPdf: ({ subject_code, query, top_k }) =>
+    API.get(`/subjects/${encodePath(subject_code)}/suggestions/export/pdf`, {
+      params: { query, top_k },
+      responseType: "blob",
+    }),
   generateAnswer: (payload) => API.post("/generate-answer", payload),
-  importAdminExams: (payload) => API.post("/admin/exams/import", payload),
+  importAdminExams: (payload) => API.post("/exams/import-json", payload, {
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  }),
   importAdminExamFile: (file) => {
     const formData = new FormData();
     formData.append("file", file);
-    return API.post("/admin/exams/import-file", formData);
+    return API.post("/exams/import-json", formData);
   },
   publishSubject: (subjectCode) => API.post(`/admin/subjects/${encodePath(subjectCode)}/publish`),
   deleteSubject: (subjectCode) => API.delete(`/admin/subjects/${encodePath(subjectCode)}`),
@@ -111,5 +137,7 @@ export const apiEndpoints = {
   getAdminPipelineDebug: (subjectCode) => API.get(`/admin/debug/pipeline/${encodePath(subjectCode)}`),
   getAdminQuestionsDebug: (subjectCode) => API.get(`/admin/debug/questions/${encodePath(subjectCode)}`),
 };
+
+export { buildQuery };
 
 export default API;

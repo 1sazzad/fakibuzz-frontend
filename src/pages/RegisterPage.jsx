@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { Button, Card, ErrorMessage } from "../components/ui";
 
 function getErrorMessage(error, fallback) {
   const detail = error.response?.data?.detail || error.response?.data?.message;
@@ -91,10 +92,10 @@ function RegisterPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-88px)] bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+    <main className="min-h-[calc(100vh-65px)] bg-slate-50 px-4 py-8 sm:py-12">
+      <Card className="mx-auto max-w-2xl">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-700">Student Register</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">Student Register</p>
           <h1 className="mt-3 text-3xl font-semibold text-slate-950">Create your account</h1>
           <p className="mt-2 text-sm text-slate-500">Use your student details to start using FakiBuzz! ISTian.</p>
         </div>
@@ -106,7 +107,7 @@ function RegisterPage() {
               value={form.full_name}
               onChange={(event) => updateField("full_name", event.target.value)}
               required
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="Your full name"
             />
           </label>
@@ -118,7 +119,7 @@ function RegisterPage() {
               value={form.email}
               onChange={(event) => updateField("email", event.target.value)}
               required
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="student@example.com"
             />
           </label>
@@ -129,7 +130,7 @@ function RegisterPage() {
               value={form.phone_number}
               onChange={(event) => updateField("phone_number", event.target.value)}
               required
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="01XXXXXXXXX"
             />
           </label>
@@ -139,7 +140,7 @@ function RegisterPage() {
             <input
               value={form.university_name}
               onChange={(event) => updateField("university_name", event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="Optional"
             />
           </label>
@@ -149,7 +150,7 @@ function RegisterPage() {
             <input
               value={form.department}
               onChange={(event) => updateField("department", event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="Optional"
             />
           </label>
@@ -161,7 +162,7 @@ function RegisterPage() {
               value={form.password}
               onChange={(event) => updateField("password", event.target.value)}
               required
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="Choose a password"
             />
           </label>
@@ -173,30 +174,28 @@ function RegisterPage() {
               value={form.confirm_password}
               onChange={(event) => updateField("confirm_password", event.target.value)}
               required
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-cyan-400 focus:bg-white"
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               placeholder="Repeat password"
             />
           </label>
 
-          {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 sm:col-span-2">{error}</p>}
-          {success && <p className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 sm:col-span-2">{success}</p>}
+          <div className="sm:col-span-2">
+            <ErrorMessage>{error}</ErrorMessage>
+            <ErrorMessage tone="success">{success}</ErrorMessage>
+          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-full bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-slate-300 sm:col-span-2"
-          >
+          <Button type="submit" disabled={loading} className="sm:col-span-2">
             {loading ? "Creating account..." : "Register"}
-          </button>
+          </Button>
         </form>
 
         <p className="mt-5 text-center text-sm text-slate-500">
           Already have an account?{" "}
-          <Link to="/login" className="font-semibold text-cyan-700 hover:text-cyan-800">
+          <Link to="/login" className="font-semibold text-indigo-700 hover:text-indigo-800">
             Login
           </Link>
         </p>
-      </section>
+      </Card>
     </main>
   );
 }

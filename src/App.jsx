@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
+import { useAuth } from "./context/useAuth";
 
 import UploadPage from "./pages/UploadPage";
 import QuestionsPage from "./pages/QuestionsPage";
@@ -25,6 +26,7 @@ import ManageSubjectsPage from "./pages/admin/ManageSubjectsPage";
 import TopicReviewPage from "./pages/admin/TopicReviewPage";
 
 function App() {
+  const { isAuthenticated } = useAuth();
   const [permissionMessage, setPermissionMessage] = useState("");
 
   useEffect(() => {
@@ -49,36 +51,38 @@ function App() {
         </div>
       )}
 
-      <Routes>
-        <Route path="/" element={<QuestionsPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/admin/create" element={<AdminCreatePage />} />
+      <div className={isAuthenticated ? "lg:pl-72" : ""}>
+        <Routes>
+          <Route path="/" element={<QuestionsPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/admin/create" element={<AdminCreatePage />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/subjects" element={<QuestionsPage />} />
-          <Route path="/search" element={<SimilarQuestionsPage />} />
-          <Route path="/suggestions" element={<SuggestionsPage />} />
-          <Route path="/generate-answer" element={<GenerateAnswerPage />} />
-          <Route path="/analysis" element={<TopicsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/subjects" element={<QuestionsPage />} />
+            <Route path="/search" element={<SimilarQuestionsPage />} />
+            <Route path="/suggestions" element={<SuggestionsPage />} />
+            <Route path="/generate-answer" element={<GenerateAnswerPage />} />
+            <Route path="/analysis" element={<TopicsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
 
-          <Route path="/predict" element={<PredictionsPage />} />
-          <Route path="/answers" element={<GenerateAnswerPage />} />
-        </Route>
+            <Route path="/predict" element={<PredictionsPage />} />
+            <Route path="/answers" element={<GenerateAnswerPage />} />
+          </Route>
 
-        <Route element={<AdminRoute />}>
-          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/admin/upload" element={<AdminUploadPage />} />
-          <Route path="/admin/topic-review" element={<TopicReviewPage />} />
-          <Route path="/admin/questions" element={<ManageQuestionsPage />} />
-          <Route path="/admin/subjects" element={<ManageSubjectsPage />} />
+          <Route element={<AdminRoute />}>
+            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/upload" element={<AdminUploadPage />} />
+            <Route path="/admin/topic-review" element={<TopicReviewPage />} />
+            <Route path="/admin/questions" element={<ManageQuestionsPage />} />
+            <Route path="/admin/subjects" element={<ManageSubjectsPage />} />
 
-          <Route path="/admin/exams" element={<UploadPage />} />
-        </Route>
-      </Routes>
+            <Route path="/admin/exams" element={<UploadPage />} />
+          </Route>
+        </Routes>
+      </div>
     </>
   );
 }
