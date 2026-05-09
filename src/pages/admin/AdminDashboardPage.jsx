@@ -15,6 +15,7 @@ const adminWorkflows = [
 ];
 
 const feedbackStatuses = ["new", "reviewed", "approved", "resolved", "ignored"];
+const FEEDBACK_ROWS_PER_PAGE = 5;
 
 function getErrorMessage(error, fallback) {
   const detail = error.response?.data?.detail || error.response?.data?.message;
@@ -54,6 +55,7 @@ function AdminDashboardPage() {
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [feedbackError, setFeedbackError] = useState("");
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState("");
+  const [feedbackPage, setFeedbackPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -186,6 +188,10 @@ function AdminDashboardPage() {
   }
 
   const topPages = Array.isArray(analyticsSummary?.top_pages) ? analyticsSummary.top_pages : [];
+  const feedbackPageCount = Math.max(1, Math.ceil(feedbackItems.length / FEEDBACK_ROWS_PER_PAGE));
+  const currentFeedbackPage = Math.min(feedbackPage, feedbackPageCount);
+  const feedbackStartIndex = (currentFeedbackPage - 1) * FEEDBACK_ROWS_PER_PAGE;
+  const paginatedFeedbackItems = feedbackItems.slice(feedbackStartIndex, feedbackStartIndex + FEEDBACK_ROWS_PER_PAGE);
 
   return (
     <ResponsiveContainer>
@@ -263,7 +269,10 @@ function AdminDashboardPage() {
             Status
             <select
               value={feedbackStatus}
-              onChange={(event) => setFeedbackStatus(event.target.value)}
+              onChange={(event) => {
+                setFeedbackStatus(event.target.value);
+                setFeedbackPage(1);
+              }}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 sm:w-48"
             >
               {feedbackStatuses.map((status) => (
@@ -284,8 +293,9 @@ function AdminDashboardPage() {
         ) : feedbackItems.length === 0 ? (
           <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No {feedbackStatus} feedback found.</p>
         ) : (
-          <div className="mt-5 overflow-x-auto">
-            <table className="min-w-[980px] w-full text-left text-sm">
+          <>
+            <div className="mt-5 overflow-x-auto">
+              <table className="min-w-[980px] w-full text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-[0.16em] text-slate-500">
                 <tr>
                   <th className="py-3 pr-4">ID</th>
@@ -300,7 +310,7 @@ function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {feedbackItems.map((item) => {
+                {paginatedFeedbackItems.map((item) => {
                   const feedbackId = getFeedbackId(item);
 
                   return (
@@ -335,8 +345,51 @@ function AdminDashboardPage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                Showing {feedbackStartIndex + 1}-{Math.min(feedbackStartIndex + FEEDBACK_ROWS_PER_PAGE, feedbackItems.length)} of {feedbackItems.length}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentFeedbackPage === 1}
+                  onClick={() => setFeedbackPage(Math.max(1, currentFeedbackPage - 1))}
+                >
+                  Previous
+                </Button>
+                {Array.from({ length: feedbackPageCount }, (_, index) => {
+                  const pageNumber = index + 1;
+
+                  return (
+                    <Button
+                      key={pageNumber}
+                      type="button"
+                      variant={pageNumber === currentFeedbackPage ? "primary" : "secondary"}
+                      size="sm"
+                      aria-current={pageNumber === currentFeedbackPage ? "page" : undefined}
+                      onClick={() => setFeedbackPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </Button>
+                  );
+                })}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={currentFeedbackPage === feedbackPageCount}
+                  onClick={() => setFeedbackPage(Math.min(feedbackPageCount, currentFeedbackPage + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </Card>
 
