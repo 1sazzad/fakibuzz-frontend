@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import { getInstitutionDisplay, hasInstitutionMetadata } from "../../utils/institution";
@@ -17,27 +17,42 @@ function isDiagramRequired(value) {
 
 function FormulaDisplay({ latex }) {
   const source = getOptionalText(latex);
-  const rendered = useMemo(() => {
+  const containerRef = useRef(null);
+  const canRender = useMemo(() => {
     if (!source) {
-      return null;
+      return false;
     }
 
     try {
-      return katex.renderToString(source, {
+      katex.renderToString(source, {
         displayMode: true,
         throwOnError: true,
         strict: "warn",
       });
+      return true;
     } catch {
-      return null;
+      return false;
     }
   }, [source]);
+
+  useEffect(() => {
+    if (!containerRef.current || !source || !canRender) {
+      return;
+    }
+
+    containerRef.current.textContent = "";
+    katex.render(source, containerRef.current, {
+      displayMode: true,
+      throwOnError: true,
+      strict: "warn",
+    });
+  }, [canRender, source]);
 
   if (!source) {
     return null;
   }
 
-  if (!rendered) {
+  if (!canRender) {
     return (
       <code className="block overflow-x-auto rounded-xl bg-white px-3 py-2 font-mono text-xs text-slate-700">
         {source}
@@ -47,8 +62,8 @@ function FormulaDisplay({ latex }) {
 
   return (
     <div
+      ref={containerRef}
       className="overflow-x-auto rounded-xl bg-white px-3 py-2 text-slate-900"
-      dangerouslySetInnerHTML={{ __html: rendered }}
     />
   );
 }
