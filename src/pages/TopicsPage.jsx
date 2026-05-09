@@ -30,6 +30,25 @@ function getAnalysisMessage(payload, fallback) {
   return fallback;
 }
 
+function formatAppearedYears(value) {
+  const rawValue = Array.isArray(value) ? value.join(", ") : String(value ?? "").trim();
+
+  if (!rawValue) {
+    return "N/A";
+  }
+
+  const compactDigits = rawValue.replace(/\s+/g, "");
+  if (/^\d+$/.test(compactDigits) && compactDigits.length > 4 && compactDigits.length % 4 === 0) {
+    return compactDigits.match(/.{1,4}/g).join(", ");
+  }
+
+  return rawValue
+    .split(/[,|/]+/)
+    .map((year) => year.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 function TopicsPage() {
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -224,7 +243,7 @@ function TopicsPage() {
                         <Badge tone="indigo">{topic.frequency ?? topic.count ?? topic.score ?? "-"}</Badge>
                       </div>
                       <p className="mt-2 text-sm text-slate-600">
-                        Appeared years: {Array.isArray(topic.appeared_years) ? topic.appeared_years.join(", ") : topic.appeared_years || topic.years || "N/A"}
+                        Appeared years: {formatAppearedYears(topic.appeared_years ?? topic.years)}
                       </p>
                       <p className="text-sm text-slate-600">Total marks: {topic.total_marks ?? topic.marks ?? "N/A"}</p>
                       {topic.probability && <p className="text-sm text-slate-600">Probability: {topic.probability}</p>}
