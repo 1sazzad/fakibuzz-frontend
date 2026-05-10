@@ -153,7 +153,8 @@ export const apiEndpoints = {
   searchSubject: (query) => API.get("/subjects/search", { params: { query } }),
   getSubjectOverview: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/overview`),
   getSubjects: (params) => API.get("/subjects", { params }),
-  getSubjectQuestions: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/questions`),
+  getSubjectQuestions: (subjectCode, params) =>
+    API.get(`/subjects/${encodePath(subjectCode)}/questions`, { params }),
   searchQuestions: (payload) => API.post("/search", payload),
   getSubjectAnalysis: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/analysis`),
   getSubjectPrediction: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/predictions`),

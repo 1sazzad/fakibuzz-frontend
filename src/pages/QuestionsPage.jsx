@@ -12,6 +12,8 @@ function normalizeTopics(payload) {
   return payload?.top_topics || payload?.topics || [];
 }
 
+const QUESTIONS_PER_PAGE = 20;
+
 function QuestionsPage() {
   const navigate = useNavigate();
   const [subjects, setSubjects] = useState([]);
@@ -20,6 +22,10 @@ function QuestionsPage() {
   const [searchResult, setSearchResult] = useState(null);
   const [overview, setOverview] = useState(null);
   const [questions, setQuestions] = useState([]);
+  const [questionPage, setQuestionPage] = useState(1);
+  const [questionLimit] = useState(QUESTIONS_PER_PAGE);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [totalQuestionPages, setTotalQuestionPages] = useState(0);
   const [booting, setBooting] = useState(true);
   const [loadingSubject, setLoadingSubject] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -42,7 +48,7 @@ function QuestionsPage() {
         if (subjectList.length > 0) {
           const firstSubjectCode = subjectList[0].subject_code;
           setSelectedSubject(firstSubjectCode);
-          await loadSubjectData(firstSubjectCode);
+          await loadSubjectData(firstSubjectCode, 1);
         } else {
           setMessage("No published subjects are available yet.");
         }
@@ -65,28 +71,41 @@ function QuestionsPage() {
     };
   }, []);
 
-  async function loadSubjectData(subjectCode) {
+  async function loadSubjectData(subjectCode, page = 1) {
     if (!subjectCode) {
       setOverview(null);
       setQuestions([]);
+      setQuestionPage(1);
+      setTotalQuestions(0);
+      setTotalQuestionPages(0);
       return;
     }
 
     setLoadingSubject(true);
+    const safePage = Math.max(1, Number(page) || 1);
 
     try {
       const [overviewResponse, questionsResponse] = await Promise.all([
         apiEndpoints.getSubjectOverview(subjectCode),
-        apiEndpoints.getSubjectQuestions(subjectCode),
+        apiEndpoints.getSubjectQuestions(subjectCode, {
+          page: safePage,
+          limit: questionLimit,
+        }),
       ]);
 
+      const questionPayload = questionsResponse.data || {};
       setOverview(overviewResponse.data || null);
-      setQuestions(normalizeQuestions(questionsResponse.data));
+      setQuestions(normalizeQuestions(questionPayload));
+      setQuestionPage(Number(questionPayload.current_page || questionPayload.page || safePage));
+      setTotalQuestions(Number(questionPayload.total || 0));
+      setTotalQuestionPages(Number(questionPayload.total_pages || 0));
       setMessage(`Loaded published data for ${subjectCode}.`);
     } catch (error) {
       console.error(error);
       setOverview(null);
       setQuestions([]);
+      setTotalQuestions(0);
+      setTotalQuestionPages(0);
       setMessage(error.response?.data?.detail || "Unable to load subject data right now.");
     } finally {
       setLoadingSubject(false);
@@ -106,14 +125,17 @@ function QuestionsPage() {
     try {
       const response = await apiEndpoints.searchSubject(searchQuery.trim());
       const data = response.data || {};
-      setSearchResult(data);
+        setSearchResult(data);
 
       if (data.found && data.subject_code) {
         setSelectedSubject(data.subject_code);
-        await loadSubjectData(data.subject_code);
+        await loadSubjectData(data.subject_code, 1);
       } else {
         setOverview(null);
         setQuestions([]);
+        setQuestionPage(1);
+        setTotalQuestions(0);
+        setTotalQuestionPages(0);
         setMessage(data.message || `No published subject found for "${searchQuery.trim()}".`);
       }
     } catch (error) {
@@ -132,12 +154,26 @@ function QuestionsPage() {
       setSearchResult(null);
       setOverview(null);
       setQuestions([]);
+      setQuestionPage(1);
+      setTotalQuestions(0);
+      setTotalQuestionPages(0);
       setMessage("Pick a subject to view its overview and published questions.");
       return;
     }
 
     setSearchResult(null);
-    await loadSubjectData(subjectCode);
+    await loadSubjectData(subjectCode, 1);
+  }
+
+  async function handleQuestionPageChange(nextPage) {
+    if (!selectedSubject || loadingSubject) {
+      return;
+    }
+    const boundedPage = Math.min(Math.max(1, nextPage), Math.max(totalQuestionPages, 1));
+    if (boundedPage === questionPage) {
+      return;
+    }
+    await loadSubjectData(selectedSubject, boundedPage);
   }
 
   const topicEntries = normalizeTopics(overview);
@@ -338,9 +374,36 @@ function QuestionsPage() {
               <h2 className="mt-2 text-2xl font-semibold text-slate-950">Questions for the selected subject</h2>
             </div>
             <Badge>
-              {loadingSubject ? "Refreshing..." : `${questions.length} loaded`}
+              {loadingSubject ? "Refreshing..." : `${totalQuestions || questions.length} total`}
             </Badge>
           </div>
+          {totalQuestionPages > 1 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+              <p className="text-sm text-slate-600">
+                Page <span className="font-semibold text-slate-950">{questionPage}</span> of{" "}
+                <span className="font-semibold text-slate-950">{totalQuestionPages}</span>
+                {" "}({questions.length} shown)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={loadingSubject || questionPage <= 1}
+                  onClick={() => handleQuestionPageChange(questionPage - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={loadingSubject || questionPage >= totalQuestionPages}
+                  onClick={() => handleQuestionPageChange(questionPage + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="mt-5 grid gap-4">
             {questions.length === 0 ? (
@@ -376,6 +439,33 @@ function QuestionsPage() {
               ))
             )}
           </div>
+          {totalQuestionPages > 1 && (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              {Array.from({ length: totalQuestionPages }, (_, index) => index + 1)
+                .filter((page) => (
+                  page === 1 ||
+                  page === totalQuestionPages ||
+                  Math.abs(page - questionPage) <= 2
+                ))
+                .map((page, index, visiblePages) => {
+                  const previousPage = visiblePages[index - 1];
+                  const showGap = previousPage && page - previousPage > 1;
+                  return (
+                    <span key={page} className="flex items-center gap-2">
+                      {showGap && <span className="text-sm text-slate-400">...</span>}
+                      <Button
+                        type="button"
+                        variant={page === questionPage ? "primary" : "secondary"}
+                        disabled={loadingSubject || page === questionPage}
+                        onClick={() => handleQuestionPageChange(page)}
+                      >
+                        {page}
+                      </Button>
+                    </span>
+                  );
+                })}
+            </div>
+          )}
         </Card>
     </ResponsiveContainer>
   );
