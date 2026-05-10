@@ -12,7 +12,7 @@ FakiBuzz is an institution-ready exam preparation frontend for learners, admins,
 - Topic analysis with repeated topics, marks, and appeared years
 - Prediction result view for likely important topics or questions
 - Suggested questions based on subject and query
-- PDF and JSON export for suggestions
+- Frontend-designed PDF export for suggestions
 - Answer generation workflow
 - Feedback, support/donation, and analytics screens when the backend enables them
 - Responsive UI for mobile, tablet, and desktop
@@ -142,7 +142,7 @@ Validate these routes at 320px, 375px, 768px, 1024px, and 1440px before release.
 - Admin upload: `/admin/upload`
 - Admin questions: `/admin/questions`
 - Admin subjects: `/admin/subjects`
-- Export flows: suggestion JSON/PDF actions on `/suggestions`
+- Export flow: suggestion PDF action on `/suggestions`
 - Feedback: `/feedback`
 - Contact: `/contact`
 - Privacy Policy: `/privacy-policy`

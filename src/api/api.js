@@ -159,16 +159,6 @@ export const apiEndpoints = {
   getSubjectPrediction: (subjectCode) => API.get(`/subjects/${encodePath(subjectCode)}/predictions`),
   getSuggestions: ({ subject_code, query, top_k }) =>
     API.get(`/subjects/${encodePath(subject_code)}/suggestions`, { params: { query, top_k } }),
-  exportSuggestionsJson: ({ subject_code, query, top_k }) =>
-    API.get(`/subjects/${encodePath(subject_code)}/suggestions/export/json`, {
-      params: { query, top_k },
-      responseType: "blob",
-    }),
-  exportSuggestionsPdf: ({ subject_code, query, top_k }) =>
-    API.get(`/subjects/${encodePath(subject_code)}/suggestions/export/pdf`, {
-      params: { query, top_k },
-      responseType: "blob",
-    }),
   generateAnswer: (payload) => API.post("/generate-answer", payload),
   submitFeedback: (payload) => API.post("/feedback", payload),
   getPublicFeedback: (params) => API.get("/feedback/public", { params }),

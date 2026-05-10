@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiEndpoints } from "../api/api";
+import SuggestionReportPreview from "../components/SuggestionReportPreview";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageHeader, QuestionExtras, ResponsiveContainer } from "../components/ui";
 
 function normalizeSubjects(payload) {
@@ -159,30 +160,30 @@ function getScoreMeta(item) {
   return { label: "Low", className: "bg-slate-100 text-slate-600", score };
 }
 
-function downloadBlob(blob, filename) {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
+function getSelectedSubjectName(subjects, subjectCode) {
+  return subjects.find((subject) => subject.subject_code === subjectCode)?.subject_name || "";
 }
 
-async function getBlobErrorMessage(error, fallback) {
-  const data = error.response?.data;
+function sanitizeFilenamePart(value, fallback) {
+  const text = Array.from(String(value || fallback))
+    .filter((character) => character.charCodeAt(0) >= 32)
+    .join("")
+    .trim()
+    .replace(/[<>:"/\\|?*]+/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[.\-\s]+|[.\-\s]+$/g, "");
 
-  if (data instanceof Blob) {
-    try {
-      const parsed = JSON.parse(await data.text());
-      return parsed.detail || parsed.message || fallback;
-    } catch {
-      return fallback;
-    }
-  }
+  return text || fallback;
+}
 
-  return getErrorMessage(error, fallback);
+function buildReportFilename(reportData, subjects, subjectCode) {
+  const cleanSubjectCode = sanitizeFilenamePart(reportData?.subject_code || subjectCode, "Subject");
+  const cleanSubjectName = sanitizeFilenamePart(
+    reportData?.subject_name || getSelectedSubjectName(subjects, subjectCode),
+    "Subject",
+  );
+  return `${cleanSubjectCode}-${cleanSubjectName}`;
 }
 
 function SuggestionsPage() {
@@ -191,11 +192,12 @@ function SuggestionsPage() {
   const [query, setQuery] = useState("important questions for final exam");
   const [topK, setTopK] = useState(10);
   const [suggestions, setSuggestions] = useState([]);
+  const [reportData, setReportData] = useState(null);
   const [warning, setWarning] = useState("");
   const [modeMessage, setModeMessage] = useState("");
   const [fallbackWarning, setFallbackWarning] = useState("");
   const [loading, setLoading] = useState(false);
-  const [exportLoading, setExportLoading] = useState("");
+  const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -231,16 +233,27 @@ function SuggestionsPage() {
     setModeMessage("");
     setFallbackWarning("");
     setSuggestions([]);
+    setReportData(null);
 
     try {
+      const cleanSubjectCode = subjectCode.trim();
+      const cleanQuery = query.trim() || "important questions for final exam";
+      const cleanTopK = Number(topK) || 10;
       const response = await apiEndpoints.getSuggestions({
-        subject_code: subjectCode.trim(),
-        query: query.trim() || "important questions for final exam",
-        top_k: Number(topK) || 10,
+        subject_code: cleanSubjectCode,
+        query: cleanQuery,
+        top_k: cleanTopK,
       });
       const nextSuggestions = normalizeSuggestions(response.data);
       const statusMessage = getSuggestionStatus(response.data);
       setSuggestions(nextSuggestions);
+      setReportData({
+        ...response.data,
+        subject_code: response.data?.subject_code || cleanSubjectCode,
+        subject_name: response.data?.subject_name || getSelectedSubjectName(subjects, cleanSubjectCode),
+        generated_at: new Date().toISOString(),
+        query: cleanQuery,
+      });
       setMessage(getSuggestionsMessage(response.data, nextSuggestions.length));
       setModeMessage(statusMessage);
       setWarning(response.data?.warning || "");
@@ -253,35 +266,26 @@ function SuggestionsPage() {
     }
   }
 
-  async function handleDownload(format) {
-    if (!subjectCode.trim()) {
-      setMessage("Select a subject before downloading an export.");
+  function handlePrintPdf() {
+    if (!reportData || suggestions.length === 0) {
+      setMessage("Generate suggestions before exporting the report.");
       return;
     }
 
-    setExportLoading(format);
     setMessage("");
+    setPrinting(true);
+    const previousTitle = document.title;
+    document.title = `${buildReportFilename(reportData, subjects, subjectCode)}.pdf`;
 
-    try {
-      const cleanSubjectCode = subjectCode.trim();
-      const payload = {
-        subject_code: cleanSubjectCode,
-        query: query.trim() || "important questions for final exam",
-        top_k: Number(topK) || 10,
-      };
-      const response =
-        format === "json"
-          ? await apiEndpoints.exportSuggestionsJson(payload)
-          : await apiEndpoints.exportSuggestionsPdf(payload);
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      setPrinting(false);
+      window.removeEventListener("afterprint", restoreTitle);
+    };
 
-      downloadBlob(response.data, `fakibuzz_suggestions_${cleanSubjectCode}.${format}`);
-      setMessage(`${format.toUpperCase()} download started.`);
-    } catch (error) {
-      console.error(error);
-      setMessage(await getBlobErrorMessage(error, `Failed to export suggestions ${format.toUpperCase()}.`));
-    } finally {
-      setExportLoading("");
-    }
+    window.addEventListener("afterprint", restoreTitle);
+    window.print();
+    window.setTimeout(restoreTitle, 1000);
   }
 
   return (
@@ -323,11 +327,8 @@ function SuggestionsPage() {
             <Button type="submit" disabled={loading} className="w-full sm:w-auto">
               {loading ? "Loading..." : "Get Suggestions"}
             </Button>
-            <Button type="button" variant="secondary" onClick={() => handleDownload("json")} disabled={loading || Boolean(exportLoading) || !subjectCode.trim()} className="w-full sm:w-auto">
-              {exportLoading === "json" ? "Preparing..." : "Download JSON"}
-            </Button>
-            <Button type="button" variant="dark" onClick={() => handleDownload("pdf")} disabled={loading || Boolean(exportLoading) || !subjectCode.trim()} className="w-full sm:w-auto">
-              {exportLoading === "pdf" ? "Preparing..." : "Download PDF"}
+            <Button type="button" variant="dark" onClick={handlePrintPdf} disabled={loading || printing || !reportData || suggestions.length === 0} className="w-full sm:w-auto">
+              {printing ? "Preparing..." : "Export PDF"}
             </Button>
           </div>
         </form>
@@ -337,7 +338,9 @@ function SuggestionsPage() {
         </div>
       </Card>
 
-      <div className="grid gap-4">
+      <SuggestionReportPreview reportData={reportData} suggestions={suggestions} />
+
+      <div className="screen-suggestions grid gap-4">
           <ErrorMessage tone="warning">{warning}</ErrorMessage>
           <ErrorMessage tone="warning">{fallbackWarning}</ErrorMessage>
           {modeMessage && suggestions.length > 0 && <ErrorMessage tone="info">{modeMessage}</ErrorMessage>}

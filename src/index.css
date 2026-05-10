@@ -60,3 +60,78 @@
     overflow-wrap: anywhere;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    width: 210mm;
+    min-width: 0;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-report-root,
+  .print-report-root * {
+    visibility: visible;
+  }
+
+  .print-report-root {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    background: #ffffff !important;
+  }
+
+  .report-page {
+    width: 100%;
+    margin: 0;
+    border: 0 !important;
+    padding-bottom: 12mm !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+    font-family: "Noto Sans Bengali", "Noto Sans", "SolaimanLipi", Arial, sans-serif;
+  }
+
+  .report-section,
+  .report-question-card,
+  .report-question-extras,
+  .report-footer,
+  table,
+  tr,
+  thead,
+  tbody {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-question-card {
+    margin-bottom: 12pt;
+  }
+
+  .report-footer {
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
