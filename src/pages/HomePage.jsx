@@ -389,24 +389,22 @@ function HomePage() {
               SUPPORT COMMUNITY | শিক্ষার্থী কমিউনিটিকে সহযোগিতা করুন
             </p>
             <h2 className="mt-3 break-words text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-              Not every student gets equal access to exam resources.
+              Students already help each other. We’re making it easier.
             </h2>
             <h3 className="mt-3 break-words text-xl font-semibold leading-8 text-slate-900 sm:text-2xl sm:leading-9">
-              সব শিক্ষার্থী সমানভাবে পরীক্ষার রিসোর্স পায় না।
+              শিক্ষার্থীরা একে অপরকে সাহায্য করে — আমরা শুধু এটাকে আরও সহজ করছি।
             </h3>
-            <div className="mt-6 space-y-3">
-              <p className="break-words text-base leading-relaxed text-slate-600">
-                Some students get previous questions from seniors instantly.
-              </p>
-              <p className="break-words text-base leading-relaxed text-slate-600">
-                Others spend hours searching through groups, PDFs, and old drives.
-              </p>
-              <p className="break-words text-base leading-8 text-slate-500">
-                কেউ সহজেই আগের বছরের প্রশ্ন পেয়ে যায়।
-              </p>
-              <p className="break-words text-base leading-8 text-slate-500">
-                আবার কেউ ঘণ্টার পর ঘণ্টা খুঁজেও পায় না।
-              </p>
+            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              {[
+                ["Previous questions stay scattered", "পুরোনো প্রশ্ন ছড়িয়ে থাকে"],
+                ["Students waste time searching", "শিক্ষার্থীদের খুঁজতে অনেক সময় নষ্ট হয়"],
+                ["Better preparation needs easier access", "ভালো প্রস্তুতির জন্য সহজ অ্যাক্সেস দরকার"],
+              ].map(([english, bangla]) => (
+                <div key={english} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="break-words text-sm font-semibold leading-6 text-slate-800">{english}</p>
+                  <p className="mt-2 break-words text-sm font-medium leading-7 text-slate-500">{bangla}</p>
+                </div>
+              ))}
             </div>
             <Button as={Link} to="/support" size="lg" className="mt-8 w-full sm:w-auto">
               Support Students | শিক্ষার্থীদের সহযোগিতা করুন
@@ -414,10 +412,10 @@ function HomePage() {
           </div>
           <Card className="self-start border-cyan-100 bg-cyan-50/60">
             <p className="break-words text-xl font-semibold leading-8 text-slate-950">
-              A small contribution can help keep exam resources accessible for more students.
+              Keep this resource free for students
             </p>
             <p className="mt-4 break-words text-lg font-semibold leading-8 text-slate-800">
-              আপনার ছোট সহযোগিতাও আরও বেশি শিক্ষার্থীর জন্য রিসোর্স সহজলভ্য রাখতে সাহায্য করতে পারে।
+              এই রিসোর্স শিক্ষার্থীদের জন্য ফ্রি রাখতে সাহায্য করুন
             </p>
           </Card>
         </div>
