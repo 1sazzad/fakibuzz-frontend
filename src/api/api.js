@@ -23,13 +23,20 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 429) {
+      const responseData = error.response.data || {};
       const retryAfter = formatRetryAfter(error.response.headers?.["retry-after"]);
-      const message = retryAfter ? `${RATE_LIMIT_MESSAGE} Wait ${retryAfter}.` : RATE_LIMIT_MESSAGE;
+      const message = responseData.quota
+        ? responseData.detail || "Monthly AI answer quota exceeded."
+        : retryAfter
+          ? `${RATE_LIMIT_MESSAGE} Wait ${retryAfter}.`
+          : RATE_LIMIT_MESSAGE;
       error.message = message;
-      error.response.data = {
-        ...(error.response.data || {}),
-        detail: message,
-      };
+      error.response.data = responseData.quota
+        ? responseData
+        : {
+            ...responseData,
+            detail: message,
+          };
       window.dispatchEvent(new CustomEvent("api:rate-limit", { detail: { message } }));
     }
 
@@ -80,13 +87,14 @@ export async function apiFetch(path, options = {}) {
   const data = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
-    const rateLimitMessage = response.status === 429 ? getRateLimitMessage(response.headers.get("Retry-After")) : "";
+    const quotaMessage = response.status === 429 && data?.quota ? data.detail || "Monthly AI answer quota exceeded." : "";
+    const rateLimitMessage = response.status === 429 && !data?.quota ? getRateLimitMessage(response.headers.get("Retry-After")) : "";
     const error = new Error(rateLimitMessage || data?.detail || data?.message || "Request failed.");
     error.status = response.status;
     error.data = rateLimitMessage ? { ...(data || {}), detail: rateLimitMessage } : data;
 
     if (response.status === 429) {
-      window.dispatchEvent(new CustomEvent("api:rate-limit", { detail: { message: rateLimitMessage } }));
+      window.dispatchEvent(new CustomEvent("api:rate-limit", { detail: { message: quotaMessage || rateLimitMessage } }));
     }
 
     throw error;

@@ -86,6 +86,25 @@ function getErrorMessage(error, fallback) {
   return detail || error.message || fallback;
 }
 
+function getQuotaFromError(error) {
+  return error.response?.data?.quota || error.data?.quota || null;
+}
+
+function getQuotaErrorMessage(error) {
+  const quota = getQuotaFromError(error);
+  if (!quota) {
+    return "";
+  }
+
+  const used = Number(quota.used ?? quota.limit ?? 0);
+  const limit = Number(quota.limit ?? used);
+  if (quota.period === "monthly") {
+    return `Monthly AI limit reached. You have used ${used}/${limit} free AI answers this month.`;
+  }
+
+  return getErrorMessage(error, "AI answer quota exceeded.");
+}
+
 function normalizeRelatedQuestions(payload) {
   const items = payload?.related_questions || payload?.related_previous_questions || [];
   return Array.isArray(items) ? items : [];
@@ -103,6 +122,7 @@ function GenerateAnswerPage() {
   const [marks, setMarks] = useState("");
   const [answer, setAnswer] = useState("");
   const [answerResult, setAnswerResult] = useState(null);
+  const [quota, setQuota] = useState(null);
   const [loading, setLoading] = useState(false);
   const [subjects, setSubjects] = useState([]);
   const [message, setMessage] = useState("Ask a question and generate a simple answer.");
@@ -203,14 +223,17 @@ function GenerateAnswerPage() {
 
       const data = response.data || {};
       setAnswerResult(data);
+      setQuota(data.quota || null);
       setAnswer(data.generated_answer || data.answer || JSON.stringify(data, null, 2));
       setMessage("Answer generated successfully.");
     } catch (error) {
       console.error(error);
+      const quotaErrorMessage = getQuotaErrorMessage(error);
       setAnswer("");
       setAnswerResult(null);
+      setQuota(getQuotaFromError(error));
       setIsError(true);
-      setMessage(getErrorMessage(error, "The backend could not generate an answer for this request."));
+      setMessage(quotaErrorMessage || getErrorMessage(error, "The backend could not generate an answer for this request."));
     } finally {
       setLoading(false);
     }
@@ -341,6 +364,15 @@ function GenerateAnswerPage() {
           <div className="mt-4">
             <ErrorMessage tone={isError ? "error" : "info"}>{message}</ErrorMessage>
           </div>
+
+          {quota && (
+            <div className="mt-4 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 sm:grid-cols-2">
+              <span className="font-semibold text-slate-900">
+                AI Answers Used: {quota.used} / {quota.limit} this month
+              </span>
+              <span>Remaining: {quota.remaining}</span>
+            </div>
+          )}
 
           {answer && (
             <div className="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
