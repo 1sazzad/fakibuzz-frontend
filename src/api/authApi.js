@@ -12,6 +12,10 @@ export function getCurrentUser() {
   return API.get("/auth/me");
 }
 
+export function updateCurrentUserProfile(data) {
+  return API.patch("/auth/me/profile", data);
+}
+
 export function verifyEmail(token) {
   return API.post("/auth/verify-email", { token });
 }

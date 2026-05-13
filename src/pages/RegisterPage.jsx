@@ -162,8 +162,6 @@ function RegisterPage() {
       !form.phone_number.trim() ||
       !form.university_id ||
       !form.department_id ||
-      !form.program.trim() ||
-      !form.year_semester.trim() ||
       !form.password ||
       !form.confirm_password
     ) {
@@ -171,10 +169,6 @@ function RegisterPage() {
         setError("University is required.");
       } else if (!form.department_id) {
         setError("Department is required.");
-      } else if (!form.program.trim()) {
-        setError("Program/Degree is required.");
-      } else if (!form.year_semester.trim()) {
-        setError("Year/Semester is required.");
       } else {
         setError("All fields are required.");
       }
@@ -216,7 +210,7 @@ function RegisterPage() {
       const selectedUniversity = universities.find((university) => String(university.id ?? university.university_id) === form.university_id);
       const universityId = Number.isNaN(Number(form.university_id)) ? form.university_id : Number(form.university_id);
       const departmentId = Number.isNaN(Number(form.department_id)) ? form.department_id : Number(form.department_id);
-      const response = await register({
+      await register({
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone_number: form.phone_number.trim(),
@@ -224,9 +218,9 @@ function RegisterPage() {
         department_id: departmentId,
         college_institute_school: form.college_institute_school.trim() || undefined,
         college: form.college_institute_school.trim() || undefined,
-        program: form.program.trim(),
-        batch_session: form.year_semester.trim(),
-        year_semester: form.year_semester.trim(),
+        program: form.program.trim() || undefined,
+        batch_session: form.year_semester.trim() || undefined,
+        year_semester: form.year_semester.trim() || undefined,
         year: form.year_semester.trim() || undefined,
         semester: form.year_semester.trim() || undefined,
         terms_accepted: true,
@@ -238,9 +232,7 @@ function RegisterPage() {
         }),
         password: form.password,
       });
-      setSuccess(
-        `${response?.message || "Account created successfully. If you did not receive a verification email, use resend verification."}\nCheck your email to verify your account.`,
-      );
+      setSuccess("Account created successfully. You can now login.");
     } catch (err) {
       setError(getApiErrorMessage(err, "Registration failed. Email or phone number may already be used."));
     } finally {
@@ -355,9 +347,8 @@ function RegisterPage() {
             <input
               value={form.program}
               onChange={(event) => updateField("program", event.target.value)}
-              required
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-              placeholder="BSc in CSE"
+              placeholder="Optional"
             />
           </label>
 
@@ -366,9 +357,8 @@ function RegisterPage() {
             <input
               value={form.year_semester}
               onChange={(event) => updateField("year_semester", event.target.value)}
-              required
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-              placeholder="Year 2 / Semester 1"
+              placeholder="Optional"
             />
           </label>
 
@@ -427,10 +417,7 @@ function RegisterPage() {
             {success && (
               <div className="mt-3 flex flex-wrap gap-3 text-sm">
                 <Link to="/login" className="font-semibold text-indigo-700 hover:text-indigo-800">
-                  Login after verification
-                </Link>
-                <Link to="/resend-verification" className="font-semibold text-indigo-700 hover:text-indigo-800">
-                  Resend verification
+                  Login
                 </Link>
               </div>
             )}

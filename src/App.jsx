@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 import Navbar from "./components/Navbar";
@@ -7,6 +7,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import AdminRoute from "./routes/AdminRoute";
 import SuperAdminRoute from "./routes/SuperAdminRoute";
 import { useAuth } from "./context/useAuth";
+import { useSidebarCollapsed } from "./hooks/useSidebarCollapsed";
 import { PERMISSION_DENIED_MESSAGE } from "./utils/auth";
 
 import UploadPage from "./pages/UploadPage";
@@ -32,6 +33,7 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminCreatePage from "./pages/AdminCreatePage";
 import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
+import JobStatusPage from "./pages/JobStatusPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import AdminUploadPage from "./pages/admin/AdminUploadPage";
 import ManageQuestionsPage from "./pages/admin/ManageQuestionsPage";
@@ -42,7 +44,16 @@ import AdminProfilePage from "./pages/admin/AdminProfilePage";
 
 function App() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const { isCollapsed } = useSidebarCollapsed();
   const [permissionMessage, setPermissionMessage] = useState("");
+
+  // Show PublicNavbar only on homepage
+  const isHomePage = location.pathname === "/";
+
+  // List of public auth pages that shouldn't show any navbar
+  const publicAuthPages = ["/login", "/register", "/verify-email", "/resend-verification", "/forgot-password", "/reset-password", "/admin/login", "/admin/create"];
+  const isPublicAuthPage = publicAuthPages.includes(location.pathname);
 
   useEffect(() => {
     function handleForbidden() {
@@ -55,7 +66,7 @@ function App() {
 
   return (
     <>
-      <Navbar />
+      {!isPublicAuthPage && !isHomePage && <Navbar />}
       <AnalyticsTracker />
 
       {permissionMessage && (
@@ -67,7 +78,15 @@ function App() {
         </div>
       )}
 
-      <div className={`min-w-0 overflow-x-hidden ${isAuthenticated ? "lg:pl-72" : ""}`}>
+      <div
+        className={`min-w-0 overflow-x-hidden transition-all duration-300 ${
+          isAuthenticated && !isPublicAuthPage && !isHomePage
+            ? isCollapsed
+              ? "lg:pl-20"
+              : "lg:pl-72"
+            : ""
+        }`}
+      >
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -83,23 +102,26 @@ function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/admin/create" element={<AdminCreatePage />} />
+          <Route path="/jobs/:jobId" element={<JobStatusPage />} />
 
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
+            {/* Consolidated student navigation for MVP. Redirect legacy pages to /subjects. */}
+            <Route path="/dashboard" element={<Navigate to="/subjects" replace />} />
             <Route path="/subjects" element={<QuestionsPage />} />
-            <Route path="/search" element={<SimilarQuestionsPage />} />
+            <Route path="/search" element={<Navigate to="/subjects" replace />} />
             <Route path="/suggestions" element={<SuggestionsPage />} />
             <Route path="/generate-answer" element={<GenerateAnswerPage />} />
-            <Route path="/analysis" element={<TopicsPage />} />
+            <Route path="/analysis" element={<Navigate to="/subjects" replace />} />
             <Route path="/profile" element={<ProfilePage />} />
 
-            <Route path="/predict" element={<PredictionsPage />} />
+            <Route path="/predict" element={<Navigate to="/subjects" replace />} />
             <Route path="/answers" element={<GenerateAnswerPage />} />
           </Route>
 
           <Route element={<AdminRoute />}>
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             <Route path="/admin/upload" element={<AdminUploadPage />} />
+            <Route path="/admin/jobs/:jobId" element={<JobStatusPage />} />
             <Route path="/admin/questions" element={<ManageQuestionsPage />} />
             <Route path="/admin/subjects" element={<ManageSubjectsPage />} />
             <Route path="/admin/profile" element={<AdminProfilePage />} />

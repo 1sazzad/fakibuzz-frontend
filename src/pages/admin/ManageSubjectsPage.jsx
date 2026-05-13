@@ -22,13 +22,14 @@ function normalizeSubjects(payload) {
 
   return rawSubjects
     .map((subject) => ({
+      subject_id: subject?.subject_id ?? subject?.id ?? subject?.subjectId ?? null,
       subject_code: String(subject?.subject_code ?? subject?.code ?? subject?.subjectCode ?? "").trim(),
       subject_name: String(subject?.subject_name ?? subject?.name ?? subject?.subjectName ?? "").trim(),
       status: String(subject?.status ?? "").trim(),
       total_questions: subject?.total_questions ?? subject?.question_count ?? 0,
       pending_review_count: subject?.pending_review_count ?? 0,
     }))
-    .filter((subject) => subject.subject_code);
+    .filter((subject) => subject.subject_code && subject.subject_id);
 }
 
 function normalizeTopics(payload) {
@@ -123,14 +124,14 @@ function ManageSubjectsPage() {
     }
   }
 
-  async function publishSubject(subjectCode) {
+  async function publishSubject(subject) {
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      const response = await apiEndpoints.publishSubject(subjectCode);
-      setMessage(response.data?.message || `Subject ${subjectCode} published.`);
+      const response = await apiEndpoints.publishSubject(subject.subject_id);
+      setMessage(response.data?.message || `Subject ${subject.subject_code} published.`);
       await loadSubjects(status);
     } catch (err) {
       setError(getErrorMessage(err, "Unable to publish subject."));
@@ -150,11 +151,11 @@ function ManageSubjectsPage() {
 
     try {
       if (confirmAction.type === "subject") {
-        await apiEndpoints.deleteSubject(confirmAction.subjectCode);
+        await apiEndpoints.deleteSubject(confirmAction.subjectId);
         setMessage(`Deleted subject ${confirmAction.subjectCode}.`);
         setTopics([]);
         setSubjects((current) => {
-          const nextSubjects = current.filter((subject) => subject.subject_code !== confirmAction.subjectCode);
+          const nextSubjects = current.filter((subject) => subject.subject_id !== confirmAction.subjectId);
           setSelectedSubject((currentSubject) => (currentSubject === confirmAction.subjectCode ? nextSubjects[0]?.subject_code || "" : currentSubject));
           return nextSubjects;
         });
@@ -228,7 +229,7 @@ function ManageSubjectsPage() {
             <h2 className="text-xl font-semibold text-slate-950">Subjects</h2>
             <div className="mt-4 space-y-3">
               {subjects.map((subject) => (
-                <article key={subject.subject_code} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <article key={subject.subject_id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="font-semibold text-slate-950">{subject.subject_code}</h3>
@@ -241,12 +242,12 @@ function ManageSubjectsPage() {
                       <button type="button" onClick={() => { setSelectedSubject(subject.subject_code); loadTopics(subject.subject_code); }} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
                         Topics
                       </button>
-                      <button type="button" onClick={() => publishSubject(subject.subject_code)} disabled={loading} className="rounded-full bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 disabled:bg-slate-300">
+                      <button type="button" onClick={() => publishSubject(subject)} disabled={loading} className="rounded-full bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 disabled:bg-slate-300">
                         Publish
                       </button>
                       <button
                         type="button"
-                        onClick={() => setConfirmAction({ type: "subject", subjectCode: subject.subject_code })}
+                        onClick={() => setConfirmAction({ type: "subject", subjectId: subject.subject_id, subjectCode: subject.subject_code })}
                         className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
                       >
                         Delete

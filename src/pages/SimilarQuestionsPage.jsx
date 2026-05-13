@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/useAuth";
 import { apiEndpoints } from "../api/api";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, Card, EmptyState, LoadingSpinner, PageHeader, QuestionExtras, ResponsiveContainer } from "../components/ui";
@@ -8,6 +9,7 @@ function normalizeResults(payload) {
 }
 
 function SimilarQuestionsPage() {
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState([]);
   const [query, setQuery] = useState("Explain SEO");
   const [subjectCode, setSubjectCode] = useState("");
@@ -22,7 +24,11 @@ function SimilarQuestionsPage() {
   useEffect(() => {
     let active = true;
 
-    apiEndpoints.getSubjects({ status: "published" })
+    const params = { status: "published" };
+    if (user?.university_id) params.university_id = user.university_id;
+    if (user?.department_id) params.department_id = user.department_id;
+
+    apiEndpoints.getSubjects(params)
       .then((response) => {
         if (!active) {
           return;

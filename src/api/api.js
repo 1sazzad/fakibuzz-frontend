@@ -165,6 +165,7 @@ export const apiEndpoints = {
   register: (payload) => API.post("/auth/register", payload),
   login: (payload) => API.post("/auth/login", payload),
   getCurrentUser: () => API.get("/auth/me"),
+  updateCurrentUserProfile: (payload) => API.patch("/auth/me/profile", payload),
   verifyEmail: (payload) => API.post("/auth/verify-email", payload),
   resendVerificationEmail: (payload) => API.post("/auth/resend-verification-email", payload),
   forgotPassword: (payload) => API.post("/auth/forgot-password", payload),
@@ -202,13 +203,20 @@ export const apiEndpoints = {
   importAdminExams: (payload) => API.post("/admin/exams/import", payload, {
     headers: { "Content-Type": "application/json; charset=utf-8" },
   }),
-  importAdminExamFile: (file) => {
+  getJobStatus: (jobId) => API.get(`/jobs/${encodePath(jobId)}`),
+  importAdminExamFile: (file, scope = {}) => {
     const formData = new FormData();
+    if (scope.university_id !== undefined && scope.university_id !== null && scope.university_id !== "") {
+      formData.append("university_id", scope.university_id);
+    }
+    if (scope.department_id !== undefined && scope.department_id !== null && scope.department_id !== "") {
+      formData.append("department_id", scope.department_id);
+    }
     formData.append("file", file);
     return API.post("/admin/exams/import", formData);
   },
-  publishSubject: (subjectCode) => API.post(`/admin/subjects/${encodePath(subjectCode)}/publish`),
-  deleteSubject: (subjectCode) => API.delete(`/admin/subjects/${encodePath(subjectCode)}`),
+  publishSubject: (subjectId) => API.post(`/admin/subjects/id/${encodePath(subjectId)}/publish`),
+  deleteSubject: (subjectId) => API.delete(`/admin/subjects/id/${encodePath(subjectId)}`),
   deleteSubjectTopic: (subjectCode, topicName) => API.delete(`/admin/subjects/${encodePath(subjectCode)}/topics/${encodePath(topicName)}`),
   getSystemStatus: () => API.get("/debug/system-status"),
 };

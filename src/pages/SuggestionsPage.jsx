@@ -1,7 +1,53 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/useAuth";
+import { Link } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { apiEndpoints } from "../api/api";
-import SuggestionReportPreview from "../components/SuggestionReportPreview";
+import MathRenderer from "../components/MathRenderer";
 import { Badge, Button, Card, EmptyState, ErrorMessage, PageHeader, QuestionExtras, ResponsiveContainer } from "../components/ui";
+import { MISSING_STUDENT_SCOPE_MESSAGE, isMissingStudentScopeError } from "../utils/auth";
+
+const MARK_TO_ANSWER_TYPE = [
+  { max: 2, type: "2_mark" },
+  { max: 5, type: "5_mark" },
+  { max: 10, type: "10_mark" },
+];
+
+const KATEX_OPTIONS = {
+  throwOnError: false,
+  strict: false,
+  trust: false,
+};
+
+const markdownComponents = {
+  h2: (props) => <h2 className="mt-6 border-b border-slate-200 pb-2 text-lg font-semibold leading-snug text-slate-950 first:mt-0" {...props} />,
+  h3: (props) => <h3 className="mt-4 text-base font-semibold leading-snug text-slate-900" {...props} />,
+  p: (props) => <p className="my-3 text-sm leading-7 text-slate-700 sm:text-base" {...props} />,
+  ul: (props) => <ul className="my-3 list-disc space-y-1 pl-6 text-sm leading-7 text-slate-700 sm:text-base" {...props} />,
+  ol: (props) => <ol className="my-3 list-decimal space-y-1 pl-6 text-sm leading-7 text-slate-700 sm:text-base" {...props} />,
+  li: (props) => <li className="pl-1" {...props} />,
+  strong: (props) => <strong className="font-semibold text-slate-950" {...props} />,
+  table: (props) => (
+    <div className="my-4 overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-full border-collapse bg-white text-left text-sm text-slate-700" {...props} />
+    </div>
+  ),
+  th: (props) => <th className="border border-slate-200 px-3 py-2 font-semibold align-top" {...props} />,
+  td: (props) => <td className="border border-slate-200 px-3 py-2 align-top" {...props} />,
+  pre: (props) => <pre className="my-4 overflow-x-auto rounded-xl bg-slate-950 p-4 text-sm leading-6 text-slate-100" {...props} />,
+  code: (props) => {
+    const { className = "", children, ...rest } = props;
+    const isBlock = className.includes("language-") || String(children).includes("\n");
+    return isBlock ? (
+      <code className={`${className} block min-w-max`} {...rest}>{children}</code>
+    ) : (
+      <code className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[0.92em] font-medium text-slate-900" {...rest}>{children}</code>
+    );
+  },
+};
 
 function normalizeSubjects(payload) {
   const rawSubjects = Array.isArray(payload) ? payload : payload?.subjects || payload?.items || payload?.data || [];
@@ -80,8 +126,34 @@ function normalizeSuggestions(payload) {
 }
 
 function getErrorMessage(error, fallback) {
+  if (isMissingStudentScopeError(error)) {
+    return MISSING_STUDENT_SCOPE_MESSAGE;
+  }
+
   const detail = error.response?.data?.detail || error.response?.data?.message;
+
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg || item.message || JSON.stringify(item)).join(", ");
+  }
+
+  if (detail && typeof detail === "object") {
+    return detail.msg || detail.message || JSON.stringify(detail);
+  }
+
   return typeof detail === "string" ? detail : error.message || fallback;
+}
+
+function getQuotaErrorMessage(error) {
+  const quota = error.response?.data?.quota || error.data?.quota;
+  if (!quota) {
+    return "";
+  }
+
+  const used = Number(quota.used ?? quota.limit ?? 0);
+  const limit = Number(quota.limit ?? used);
+  return quota.period === "monthly"
+    ? `Monthly AI limit reached. You have used ${used}/${limit} free AI answers this month.`
+    : "AI answer quota exceeded.";
 }
 
 function getSuggestionsMessage(payload, count) {
@@ -129,6 +201,20 @@ function getSuggestionMarks(item) {
   return item.marks ?? item.total_marks ?? item.expected_marks ?? "-";
 }
 
+function getNumericMarks(item) {
+  const rawMarks = Number(getSuggestionMarks(item));
+  return Number.isFinite(rawMarks) && rawMarks > 0 ? rawMarks : null;
+}
+
+function getAnswerTypeForMarks(marks) {
+  if (!marks) {
+    return "5_mark";
+  }
+
+  const match = MARK_TO_ANSWER_TYPE.find((item) => marks <= item.max);
+  return match?.type || "15_mark";
+}
+
 function getSuggestionScore(item) {
   return item.importance ?? item.probability_score ?? item.prediction_score ?? item.importance_score ?? item.score ?? item.confidence ?? item.probability ?? item.frequency;
 }
@@ -160,59 +246,46 @@ function getScoreMeta(item) {
   return { label: "Low", className: "bg-slate-100 text-slate-600", score };
 }
 
-function getSelectedSubjectName(subjects, subjectCode) {
-  return subjects.find((subject) => subject.subject_code === subjectCode)?.subject_name || "";
-}
-
-function sanitizeFilenamePart(value, fallback) {
-  const text = Array.from(String(value || fallback))
-    .filter((character) => character.charCodeAt(0) >= 32)
-    .join("")
-    .trim()
-    .replace(/[<>:"/\\|?*]+/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[.\-\s]+|[.\-\s]+$/g, "");
-
-  return text || fallback;
-}
-
-function buildReportFilename(reportData, subjects, subjectCode) {
-  const cleanSubjectCode = sanitizeFilenamePart(reportData?.subject_code || subjectCode, "Subject");
-  const cleanSubjectName = sanitizeFilenamePart(
-    reportData?.subject_name || getSelectedSubjectName(subjects, subjectCode),
-    "Subject",
-  );
-  return `${cleanSubjectCode}-${cleanSubjectName}`;
+function getSuggestionKey(item, index) {
+  return String(item.id || item.question_id || `${item.question_no || "suggestion"}-${index}`);
 }
 
 function SuggestionsPage() {
   const [subjects, setSubjects] = useState([]);
+  const { user } = useAuth();
   const [subjectCode, setSubjectCode] = useState("");
   const [query, setQuery] = useState("important questions for final exam");
   const [topK, setTopK] = useState(10);
   const [suggestions, setSuggestions] = useState([]);
-  const [reportData, setReportData] = useState(null);
   const [warning, setWarning] = useState("");
   const [modeMessage, setModeMessage] = useState("");
+  const [topicFilter, setTopicFilter] = useState("");
+  const [predictionLevel, setPredictionLevel] = useState("All");
   const [fallbackWarning, setFallbackWarning] = useState("");
   const [loading, setLoading] = useState(false);
-  const [printing, setPrinting] = useState(false);
   const [message, setMessage] = useState("");
+  const [missingScope, setMissingScope] = useState(false);
+  const [answerStates, setAnswerStates] = useState({});
+  const [expandedAnswers, setExpandedAnswers] = useState({});
 
   useEffect(() => {
     async function loadSubjects() {
       try {
-        const response = await apiEndpoints.getSubjects({ status: "published" });
+        const params = { status: "active" };
+        if (user?.university_id) params.university_id = user.university_id;
+        if (user?.department_id) params.department_id = user.department_id;
+        const response = await apiEndpoints.getSubjects(params);
         const subjectList = normalizeSubjects(response.data);
         setSubjects(subjectList);
 
         if (subjectList.length > 0) {
           setSubjectCode(subjectList[0].subject_code);
         }
+        setMissingScope(false);
       } catch (error) {
         console.error(error);
-        setMessage("Unable to load published subjects. Enter a subject code manually.");
+        setMissingScope(isMissingStudentScopeError(error));
+        setMessage(getErrorMessage(error, "Unable to load published subjects. Enter a subject code manually."));
       }
     }
 
@@ -233,7 +306,8 @@ function SuggestionsPage() {
     setModeMessage("");
     setFallbackWarning("");
     setSuggestions([]);
-    setReportData(null);
+    setAnswerStates({});
+    setExpandedAnswers({});
 
     try {
       const cleanSubjectCode = subjectCode.trim();
@@ -247,57 +321,111 @@ function SuggestionsPage() {
       const nextSuggestions = normalizeSuggestions(response.data);
       const statusMessage = getSuggestionStatus(response.data);
       setSuggestions(nextSuggestions);
-      setReportData({
-        ...response.data,
-        subject_code: response.data?.subject_code || cleanSubjectCode,
-        subject_name: response.data?.subject_name || getSelectedSubjectName(subjects, cleanSubjectCode),
-        generated_at: new Date().toISOString(),
-        query: cleanQuery,
-      });
       setMessage(getSuggestionsMessage(response.data, nextSuggestions.length));
       setModeMessage(statusMessage);
       setWarning(response.data?.warning || "");
       setFallbackWarning("");
+      setMissingScope(false);
     } catch (error) {
       console.error(error);
+      setMissingScope(isMissingStudentScopeError(error));
       setMessage(getErrorMessage(error, "Unable to generate suggestions."));
     } finally {
       setLoading(false);
     }
   }
 
-  function handlePrintPdf() {
-    if (!reportData || suggestions.length === 0) {
-      setMessage("Generate suggestions before exporting the report.");
+  async function handleGetAnswer(item, index) {
+    const cleanSubjectCode = subjectCode.trim();
+    const questionText = getSuggestionText(item).trim();
+    const suggestionKey = getSuggestionKey(item, index);
+    const numericMarks = getNumericMarks(item);
+
+    if (!cleanSubjectCode || !questionText) {
+      setAnswerStates((current) => ({
+        ...current,
+        [suggestionKey]: {
+          loading: false,
+          error: "Subject code and question text are required.",
+          result: null,
+        },
+      }));
       return;
     }
 
-    setMessage("");
-    setPrinting(true);
-    const previousTitle = document.title;
-    document.title = `${buildReportFilename(reportData, subjects, subjectCode)}.pdf`;
+    setAnswerStates((current) => ({
+      ...current,
+      [suggestionKey]: {
+        ...(current[suggestionKey] || {}),
+        loading: true,
+        missingScope: false,
+        error: "",
+      },
+    }));
 
-    const restoreTitle = () => {
-      document.title = previousTitle;
-      setPrinting(false);
-      window.removeEventListener("afterprint", restoreTitle);
-    };
+    try {
+      const response = await apiEndpoints.generateAnswer({
+        question: questionText,
+        subject_code: cleanSubjectCode,
+        answer_type: getAnswerTypeForMarks(numericMarks),
+        marks: numericMarks,
+        formula_latex: item.formula_latex || null,
+        formula_display: item.formula_display || null,
+        math_blocks: Array.isArray(item.math_blocks) ? item.math_blocks : [],
+        diagram_required: Boolean(item.diagram_required),
+        diagram_reference: item.diagram_reference || null,
+        diagram_description: item.diagram_description || null,
+      });
 
-    window.addEventListener("afterprint", restoreTitle);
-    window.print();
-    window.setTimeout(restoreTitle, 1000);
+      setAnswerStates((current) => ({
+        ...current,
+        [suggestionKey]: {
+          loading: false,
+          missingScope: false,
+          error: "",
+          result: response.data || {},
+        },
+      }));
+    } catch (error) {
+      console.error(error);
+      const answerMissingScope = isMissingStudentScopeError(error);
+      setAnswerStates((current) => ({
+        ...current,
+        [suggestionKey]: {
+          loading: false,
+          missingScope: answerMissingScope,
+          error: getQuotaErrorMessage(error) || getErrorMessage(error, "Unable to generate answer for this suggestion."),
+          result: null,
+        },
+      }));
+    }
   }
+
+  const filteredSuggestions = suggestions.filter((item) => {
+    if (topicFilter && String(item.topic || item.final_topic || item.suggested_topic || "").toLowerCase().indexOf(topicFilter.toLowerCase()) === -1) {
+      return false;
+    }
+
+    if (predictionLevel && predictionLevel !== "All") {
+      const meta = getScoreMeta(item);
+      if ((meta.label || "") !== predictionLevel) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
     <ResponsiveContainer>
       <PageHeader
         eyebrow="Suggestions"
-        title="Generate exam question suggestions"
-        description="Create focused suggestions with Bangla, English, or mixed-language queries, then export the result."
+        title="Suggestions"
+        description="Important predicted questions for your selected subject."
       />
 
       <Card>
-        <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[1fr_1.25fr_120px]">
+        <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr]">
           <label className="space-y-2 text-sm font-medium text-slate-700">
             Subject
             {subjects.length > 0 ? (
@@ -314,47 +442,62 @@ function SuggestionsPage() {
           </label>
 
           <label className="space-y-2 text-sm font-medium text-slate-700">
-            Query
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="important questions for final exam" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            Topic (filter)
+            <input value={topicFilter} onChange={(e) => setTopicFilter(e.target.value)} placeholder="Filter by topic" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
           </label>
 
           <label className="space-y-2 text-sm font-medium text-slate-700">
-            Count
-            <input type="number" min="1" max="50" value={topK} onChange={(event) => setTopK(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+            Prediction level
+            <select value={predictionLevel} onChange={(e) => setPredictionLevel(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100">
+              <option>All</option>
+              <option>Very High</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
           </label>
 
           <div className="flex flex-col gap-2 sm:flex-row lg:col-span-3">
             <Button type="submit" disabled={loading} className="w-full sm:w-auto">
               {loading ? "Loading..." : "Get Suggestions"}
             </Button>
-            <Button type="button" variant="dark" onClick={handlePrintPdf} disabled={loading || printing || !reportData || suggestions.length === 0} className="w-full sm:w-auto">
-              {printing ? "Preparing..." : "Export PDF"}
-            </Button>
           </div>
         </form>
 
         <div className="mt-4">
           <ErrorMessage tone="info">{message}</ErrorMessage>
+          {missingScope && (
+            <div className="mt-3">
+              <Button as={Link} to="/profile" variant="secondary">
+                Go to profile
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
-
-      <SuggestionReportPreview reportData={reportData} suggestions={suggestions} />
 
       <div className="screen-suggestions grid gap-4">
           <ErrorMessage tone="warning">{warning}</ErrorMessage>
           <ErrorMessage tone="warning">{fallbackWarning}</ErrorMessage>
           {modeMessage && suggestions.length > 0 && <ErrorMessage tone="info">{modeMessage}</ErrorMessage>}
-
-          {suggestions.map((item, index) => {
+          
+          {filteredSuggestions.map((item, index) => {
             const scoreMeta = getScoreMeta(item);
             const scoreText = `${scoreMeta.score.toFixed(1)}%`;
+            const suggestionKey = getSuggestionKey(item, index);
+            const answerState = answerStates[suggestionKey] || {};
+            const answerResult = answerState.result;
+            const answerText = answerResult?.generated_answer || answerResult?.answer || "";
+            const cacheStatus = answerResult?.cache_status;
 
             return (
-              <Card as="article" key={item.id || `${item.question_no || "suggestion"}-${index}`}>
+              <Card as="article" key={suggestionKey}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-indigo-700">Suggestion {item.suggestion_no || index + 1}</p>
-                    <h2 className="mt-2 whitespace-pre-line break-words text-lg font-bold leading-7 text-slate-950 sm:text-xl">{getSuggestionText(item)}</h2>
+                    <h2 className="mt-2 text-lg font-bold leading-7 text-slate-950 sm:text-xl">
+                      <MathRenderer value={getSuggestionText(item)} className="prose max-w-none" />
+                    </h2>
                   </div>
                   <span className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${scoreMeta.className}`}>{scoreMeta.label}</span>
                 </div>
@@ -372,6 +515,107 @@ function SuggestionsPage() {
                   Based on previous-year question patterns, topic frequency, marks, recency, and semantic relevance.
                 </p>
                 <QuestionExtras item={item} />
+
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="dark"
+                    onClick={() => handleGetAnswer(item, index)}
+                    disabled={answerState.loading}
+                  >
+                    {answerState.loading ? "Loading answer..." : "Get Answer"}
+                  </Button>
+                  {cacheStatus && (
+                    <Badge tone={cacheStatus === "hit" ? "green" : "indigo"}>
+                      Cache {cacheStatus === "hit" ? "hit" : "miss"}
+                    </Badge>
+                  )}
+                </div>
+
+                {answerState.error && (
+                  <div className="mt-3">
+                    <ErrorMessage tone="error">{answerState.error}</ErrorMessage>
+                    {answerState.missingScope && (
+                      <div className="mt-3">
+                        <Button as={Link} to="/profile" variant="secondary" size="sm">
+                          Go to profile
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {answerText && (
+                  <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-base font-semibold text-slate-950">Generated answer</h3>
+                      <div className="flex items-center gap-2">
+                        {answerResult?.answer_type && <Badge tone="indigo">{String(answerResult.answer_type).replace("_", " ")}</Badge>}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto break-words rounded-2xl bg-white/80 px-4 py-3 text-slate-700 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:py-2 [&_.katex]:text-[1.04em]">
+                      <div className="flex items-start justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(answerText);
+                              setAnswerStates((current) => ({
+                                ...current,
+                                [suggestionKey]: { ...(current[suggestionKey] || {}), copied: true },
+                              }));
+                              setTimeout(() => {
+                                setAnswerStates((current) => ({
+                                  ...current,
+                                  [suggestionKey]: { ...(current[suggestionKey] || {}), copied: false },
+                                }));
+                              }, 1500);
+                            } catch (e) {
+                              // ignore
+                            }
+                          }}
+                        >
+                          {answerState.copied ? "Copied" : "Copy Answer"}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            setExpandedAnswers((current) => ({
+                              ...current,
+                              [suggestionKey]: !current[suggestionKey],
+                            }));
+                          }}
+                        >
+                          {expandedAnswers[suggestionKey] ? "Collapse Answer" : "View Full Answer"}
+                        </Button>
+                      </div>
+
+                      <div className="rounded-2xl bg-white/80 px-4 py-3 text-slate-700 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:py-2 [&_.katex]:text-[1.04em]">
+                        <div
+                          className={expandedAnswers[suggestionKey] ? "" : "[&>*:nth-child(n+5)]:hidden"}
+                          style={expandedAnswers[suggestionKey] ? undefined : { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4, overflow: "hidden" }}
+                        >
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm, remarkMath]}
+                            rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
+                            components={markdownComponents}
+                          >
+                            {answerText}
+                          </ReactMarkdown>
+                        </div>
+                        {!expandedAnswers[suggestionKey] && (
+                          <p className="mt-3 text-xs font-medium text-slate-500">Preview only. Tap View Full Answer to expand.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {item.reason && (
                   <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">

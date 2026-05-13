@@ -5,6 +5,7 @@ import heroImage from "../assets/hero.png";
 import { APP_NAME } from "../config/app";
 import { CONTACT_METHODS } from "../config/contact";
 import Footer from "../components/Footer";
+import PublicNavbar from "../components/PublicNavbar";
 import { useAuth } from "../context/useAuth";
 import { Button, Card } from "../components/ui";
 
@@ -128,8 +129,10 @@ function HomePage() {
   }
 
   return (
-    <main className="overflow-x-hidden bg-slate-50">
-      <section id="hero" className="relative overflow-hidden border-b border-slate-200 bg-white">
+    <>
+      <PublicNavbar />
+      <main className="overflow-x-hidden bg-slate-50">
+        <section id="home" className="relative overflow-hidden border-b border-slate-200 bg-white">
         <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-12 sm:px-6 md:py-16 lg:min-h-[calc(100vh-73px)] lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-8 lg:py-20">
           <div className="min-w-0 max-w-3xl">
             <p className="inline-flex max-w-full rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-sm font-semibold leading-relaxed text-cyan-800">
@@ -422,7 +425,8 @@ function HomePage() {
       </section>
 
       <Footer />
-    </main>
+      </main>
+    </>
   );
 }
 

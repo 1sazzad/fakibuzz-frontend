@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/useAuth";
 import { apiEndpoints } from "../api/api";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, Card, EmptyState, ErrorMessage, LoadingSpinner, PageHeader, QuestionExtras, ResponsiveContainer } from "../components/ui";
@@ -51,6 +52,7 @@ function formatAppearedYears(value) {
 
 function TopicsPage() {
   const [subjects, setSubjects] = useState([]);
+  const { user } = useAuth();
   const [selectedSubject, setSelectedSubject] = useState("");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -67,7 +69,10 @@ function TopicsPage() {
 
     async function initialize() {
       try {
-        const response = await apiEndpoints.getSubjects({ status: "published" });
+        const params = { status: "published" };
+        if (user?.university_id) params.university_id = user.university_id;
+        if (user?.department_id) params.department_id = user.department_id;
+        const response = await apiEndpoints.getSubjects(params);
 
         if (!active) {
           return;

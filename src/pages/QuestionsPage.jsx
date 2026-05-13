@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/useAuth";
+import { Link, useNavigate } from "react-router-dom";
 import { apiEndpoints } from "../api/api";
 import { Badge, Button, Card, EmptyState, LoadingSpinner, PageHeader, QuestionExtras, ResponsiveContainer } from "../components/ui";
+import { getApiErrorMessage, isMissingStudentScopeError } from "../utils/auth";
 
 function normalizeQuestions(payload) {
   const items = payload?.questions || payload?.items || payload?.data || payload || [];
@@ -16,6 +18,7 @@ const QUESTIONS_PER_PAGE = 20;
 
 function QuestionsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [subjects, setSubjects] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
@@ -30,13 +33,18 @@ function QuestionsPage() {
   const [loadingSubject, setLoadingSubject] = useState(false);
   const [searching, setSearching] = useState(false);
   const [message, setMessage] = useState("Search for a subject code or pick one from the list to load published data.");
+  const [missingScope, setMissingScope] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     async function initialize() {
       try {
-        const response = await apiEndpoints.getSubjects({ status: "published" });
+        // prefer student's university/department scope when available
+        const params = { status: "published" };
+        if (user?.university_id) params.university_id = user.university_id;
+        if (user?.department_id) params.department_id = user.department_id;
+        const response = await apiEndpoints.getSubjects(params);
 
         if (!active) {
           return;
@@ -44,6 +52,7 @@ function QuestionsPage() {
 
         const subjectList = response.data?.subjects || [];
         setSubjects(subjectList);
+        setMissingScope(false);
 
         if (subjectList.length > 0) {
           const firstSubjectCode = subjectList[0].subject_code;
@@ -55,7 +64,8 @@ function QuestionsPage() {
       } catch (error) {
         console.error(error);
         if (active) {
-          setMessage("Unable to load published subjects right now.");
+          setMissingScope(isMissingStudentScopeError(error));
+          setMessage(getApiErrorMessage(error, "Unable to load published subjects right now."));
         }
       } finally {
         if (active) {
@@ -99,6 +109,7 @@ function QuestionsPage() {
       setQuestionPage(Number(questionPayload.current_page || questionPayload.page || safePage));
       setTotalQuestions(Number(questionPayload.total || 0));
       setTotalQuestionPages(Number(questionPayload.total_pages || 0));
+      setMissingScope(false);
       setMessage(`Loaded published data for ${subjectCode}.`);
     } catch (error) {
       console.error(error);
@@ -106,7 +117,8 @@ function QuestionsPage() {
       setQuestions([]);
       setTotalQuestions(0);
       setTotalQuestionPages(0);
-      setMessage(error.response?.data?.detail || "Unable to load subject data right now.");
+      setMissingScope(isMissingStudentScopeError(error));
+      setMessage(getApiErrorMessage(error, "Unable to load subject data right now."));
     } finally {
       setLoadingSubject(false);
     }
@@ -128,6 +140,7 @@ function QuestionsPage() {
         setSearchResult(data);
 
       if (data.found && data.subject_code) {
+        setMissingScope(false);
         setSelectedSubject(data.subject_code);
         await loadSubjectData(data.subject_code, 1);
       } else {
@@ -136,11 +149,13 @@ function QuestionsPage() {
         setQuestionPage(1);
         setTotalQuestions(0);
         setTotalQuestionPages(0);
+        setMissingScope(false);
         setMessage(data.message || `No published subject found for "${searchQuery.trim()}".`);
       }
     } catch (error) {
       console.error(error);
-      setMessage(error.response?.data?.detail || "Subject search failed.");
+      setMissingScope(isMissingStudentScopeError(error));
+      setMessage(getApiErrorMessage(error, "Subject search failed."));
     } finally {
       setSearching(false);
     }
@@ -157,6 +172,7 @@ function QuestionsPage() {
       setQuestionPage(1);
       setTotalQuestions(0);
       setTotalQuestionPages(0);
+      setMissingScope(false);
       setMessage("Pick a subject to view its overview and published questions.");
       return;
     }
@@ -229,6 +245,11 @@ function QuestionsPage() {
               {searching ? "Searching..." : "Search subject"}
             </Button>
             <span className="text-sm text-slate-500">{message}</span>
+            {missingScope && (
+              <Button as={Link} to="/profile" variant="secondary">
+                Go to profile
+              </Button>
+            )}
           </div>
         </Card>
 

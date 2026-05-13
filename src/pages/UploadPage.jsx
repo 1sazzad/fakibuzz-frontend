@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { apiEndpoints } from "../api/api";
+import API from "../api/api";
 
 const DEFAULT_MAX_JSON_IMPORT_BYTES = 2 * 1024 * 1024;
 const MAX_JSON_IMPORT_BYTES = Number(import.meta.env.VITE_MAX_JSON_IMPORT_BYTES) || DEFAULT_MAX_JSON_IMPORT_BYTES;
@@ -223,6 +224,43 @@ function validateJsonFile(file) {
   return "";
 }
 
+function normalizeItems(payload, key) {
+  const items = Array.isArray(payload) ? payload : payload?.[key] || payload?.items || payload?.data || [];
+  return Array.isArray(items) ? items : [];
+}
+
+function getUniversityId(university) {
+  return university.id ?? university.university_id;
+}
+
+function getDepartmentId(department) {
+  return department.id ?? department.department_id;
+}
+
+function getUniversityLabel(university) {
+  const name = university.university_name || university.name || "";
+  const shortName = university.short_name || "";
+  return shortName ? `${name} (${shortName})` : name;
+}
+
+function getDepartmentLabel(department) {
+  const name = department.department_name || department.name || "";
+  const shortName = department.short_name || "";
+  return shortName ? `${name} (${shortName})` : name;
+}
+
+function normalizeSubjects(payload) {
+  const rawSubjects = Array.isArray(payload) ? payload : payload?.subjects || payload?.items || payload?.data || [];
+  return rawSubjects
+    .map((subject) => ({
+      ...subject,
+      subject_id: subject?.subject_id ?? subject?.id ?? subject?.subjectId ?? null,
+      subject_code: String(subject?.subject_code ?? subject?.code ?? subject?.subjectCode ?? "").trim(),
+      subject_name: String(subject?.subject_name ?? subject?.name ?? subject?.subjectName ?? "").trim(),
+    }))
+    .filter((subject) => subject.subject_id && subject.subject_code);
+}
+
 function UploadPage() {
   const [exam, setExam] = useState(() => ({
     exam_name: "Final Examination",
@@ -242,29 +280,172 @@ function UploadPage() {
   const [jsonError, setJsonError] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [publishSubjectCode, setPublishSubjectCode] = useState("");
+  const [publishSubjectId, setPublishSubjectId] = useState("");
   const [publishMessage, setPublishMessage] = useState("");
   const [publishResult, setPublishResult] = useState(null);
   const [uploadResponse, setUploadResponse] = useState(null);
+  const [importJob, setImportJob] = useState(null);
+  const [jobStatus, setJobStatus] = useState(null);
+  const jobPollRef = useRef({ active: false, timeoutId: null });
   const [isBatchMode, setIsBatchMode] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (jobPollRef.current?.timeoutId) {
+        clearTimeout(jobPollRef.current.timeoutId);
+      }
+
+      jobPollRef.current = { active: false, timeoutId: null };
+    };
+  }, []);
+  const [universities, setUniversities] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selectedUniversity, setSelectedUniversity] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [universitiesLoading, setUniversitiesLoading] = useState(false);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [scopeError, setScopeError] = useState("");
 
   useEffect(() => {
     async function loadBootData() {
       try {
-        const [healthResponse, subjectsResponse] = await Promise.all([apiEndpoints.health(), apiEndpoints.getSubjects()]);
-        const rawSubjects = Array.isArray(subjectsResponse.data)
-          ? subjectsResponse.data
-          : subjectsResponse.data?.subjects || subjectsResponse.data?.items || subjectsResponse.data?.data || [];
+        setUniversitiesLoading(true);
+        const [healthResponse, subjectsResponse, universitiesResponse] = await Promise.all([
+          apiEndpoints.health(),
+          apiEndpoints.getSubjects(),
+          apiEndpoints.getUniversities(),
+        ]);
         setHealthStatus(healthResponse.data?.status === "ok" ? "online" : "degraded");
-        setSubjects(rawSubjects);
+        setSubjects(normalizeSubjects(subjectsResponse.data));
+        setUniversities(normalizeItems(universitiesResponse.data, "universities"));
       } catch (error) {
         console.error(error);
         setSubjects([]);
+        setUniversities([]);
         setHealthStatus("offline");
+        setScopeError(getErrorMessage(error.response?.data || {}, "Unable to load universities."));
+      } finally {
+        setUniversitiesLoading(false);
       }
     }
 
     loadBootData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedUniversity) {
+      return;
+    }
+
+    let active = true;
+
+    Promise.resolve()
+      .then(() => {
+        if (!active) {
+          return null;
+        }
+
+        setDepartmentsLoading(true);
+        setScopeError("");
+        return apiEndpoints.getUniversityDepartments(selectedUniversity);
+      })
+      .then((response) => {
+        if (active && response) {
+          setDepartments(normalizeItems(response.data, "departments"));
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        if (active) {
+          setDepartments([]);
+          setScopeError(getErrorMessage(error.response?.data || {}, "Unable to load departments."));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setDepartmentsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedUniversity]);
+
+  function getImportScope() {
+    return {
+      university_id: Number(selectedUniversity),
+      department_id: Number(selectedDepartment),
+    };
+  }
+
+  function validateImportScope() {
+    if (!selectedUniversity) {
+      setScopeError("Please select a university first.");
+      return false;
+    }
+
+    if (!selectedDepartment) {
+      setScopeError("Please select a department first.");
+      return false;
+    }
+
+    const scope = getImportScope();
+    if (!Number.isFinite(scope.university_id)) {
+      setScopeError("Please select a university first.");
+      return false;
+    }
+
+    if (!Number.isFinite(scope.department_id)) {
+      setScopeError("Please select a department first.");
+      return false;
+    }
+
+    setScopeError("");
+    return true;
+  }
+
+  function parseJsonImportPayload(source) {
+    let parsedJson;
+
+    try {
+      parsedJson = JSON.parse(source);
+    } catch {
+      throw new Error("Invalid JSON. Paste or upload valid JSON before importing.");
+    }
+
+    const exams = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
+    const hasOnlyExamObjects = exams.length > 0 && exams.every(
+      (item) => item && typeof item === "object" && !Array.isArray(item),
+    );
+
+    if (!hasOnlyExamObjects) {
+      throw new Error("JSON must contain one exam object or an array of exam objects.");
+    }
+
+    return { parsedJson, exams };
+  }
+
+  function buildImportPayload(exams) {
+    if (!validateImportScope()) {
+      return null;
+    }
+
+    const payload = {
+      university_id: Number(selectedUniversity),
+      department_id: Number(selectedDepartment),
+      exams,
+    };
+
+    console.log("Import payload:", {
+      university_id: payload.university_id,
+      department_id: payload.department_id,
+      examsCount: exams.length,
+      firstExamKeys: Object.keys(exams[0] || {}),
+    });
+
+    return payload;
+  }
 
   function updateExam(field, value) {
     setExam((current) => {
@@ -275,6 +456,7 @@ function UploadPage() {
 
       if (field === "subject_code") {
         setPublishSubjectCode(String(value).trim());
+        setPublishSubjectId("");
       }
 
       return next;
@@ -324,6 +506,7 @@ function UploadPage() {
       const importedExam = normalizeImportedExam(expandedPayload);
       setExam(importedExam);
       setPublishSubjectCode(importedExam.subject_code);
+      setPublishSubjectId("");
       setMessage("JSON loaded into the form. Review the fields, then submit to the admin API.");
       setJsonError("");
     }
@@ -374,44 +557,36 @@ function UploadPage() {
       return;
     }
 
+    if (!validateImportScope()) {
+      return;
+    }
+
     setLoading(true);
     setJsonError("");
     setMessage("Saving imported JSON as draft data...");
     setUploadResponse(null);
 
     try {
-      if (jsonFile) {
-        const validationError = validateJsonFile(jsonFile);
-        if (validationError) {
-          setJsonError(validationError);
-          setMessage(validationError);
-          return;
-        }
-
-        const response = await apiEndpoints.importAdminExamFile(jsonFile);
-        const result = response.data || {};
-
-        setUploadResponse({
-          mode: "batch",
-          ...result,
-        });
-        setMessage(formatValue(result.message, "Imported JSON file saved as drafts."));
+      const { parsedJson, exams } = parseJsonImportPayload(jsonImport);
+      const payload = buildImportPayload(exams);
+      if (!payload) {
         return;
       }
 
-      const parsedPayload = JSON.parse(jsonImport);
-      const expandedPayload = expandImportedPayload(parsedPayload);
-      const isBatchPayload = Array.isArray(expandedPayload);
-      const payload = isBatchPayload ? normalizeBatchPayload(expandedPayload) : normalizeSingleExamPayload(expandedPayload);
       const response = await apiEndpoints.importAdminExams(payload);
       const result = response.data || {};
 
       setUploadResponse({
-        mode: isBatchPayload ? "batch" : "single",
+        mode: exams.length > 1 ? "batch" : "single",
         ...result,
       });
-      setMessage(formatValue(result.message, isBatchPayload ? "Batch drafts saved." : "Draft exam saved."));
-      applyImportedExam(parsedPayload);
+      setMessage(formatValue(result.message, exams.length > 1 ? "Batch drafts saved." : "Draft exam saved."));
+      if (result.job_id || result.status_url) {
+        const statusUrl = result.status_url || `/jobs/${encodeURIComponent(result.job_id)}`;
+        setImportJob({ job_id: result.job_id, status_url: statusUrl });
+        startJobPolling(statusUrl);
+      }
+      applyImportedExam(parsedJson);
     } catch (error) {
       console.error(error);
       const errorData = error.response?.data || {};
@@ -442,6 +617,10 @@ function UploadPage() {
   async function handleSubmit(event) {
     event.preventDefault();
 
+    if (!validateImportScope()) {
+      return;
+    }
+
     if (!isBatchMode) {
       // Single exam validation
       if (!exam.exam_name.trim() || !exam.subject_name.trim() || !exam.subject_code.trim()) {
@@ -454,7 +633,12 @@ function UploadPage() {
       setUploadResponse(null);
 
       try {
-        const payload = normalizeSingleExamPayload(exam);
+        const normalizedExam = normalizeSingleExamPayload(exam);
+        const payload = buildImportPayload([normalizedExam]);
+        if (!payload) {
+          return;
+        }
+
         const response = await apiEndpoints.importAdminExams(payload);
 
         const result = response.data || {};
@@ -462,6 +646,11 @@ function UploadPage() {
           mode: "single",
           ...result,
         });
+        if (result.job_id || result.status_url) {
+          const statusUrl = result.status_url || `/jobs/${encodeURIComponent(result.job_id)}`;
+          setImportJob({ job_id: result.job_id, status_url: statusUrl });
+          startJobPolling(statusUrl);
+        }
         setMessage("Draft exam saved successfully. Use the publish section below when the subject is ready for students.");
         setExam({
           exam_name: "Final Examination",
@@ -473,6 +662,7 @@ function UploadPage() {
           questions: [createQuestion()],
         });
         setPublishSubjectCode("");
+        setPublishSubjectId("");
       } catch (error) {
         console.error(error);
         const errorData = error.response?.data || {};
@@ -493,13 +683,23 @@ function UploadPage() {
       setUploadResponse(null);
 
       try {
-        const payload = normalizeBatchPayload(JSON.parse(jsonImport));
+        const { exams } = parseJsonImportPayload(jsonImport);
+        const payload = buildImportPayload(exams);
+        if (!payload) {
+          return;
+        }
+
         const response = await apiEndpoints.importAdminExams(payload);
         const result = response.data || {};
         setUploadResponse({
           mode: "batch",
           ...result,
         });
+        if (result.job_id || result.status_url) {
+          const statusUrl = result.status_url || `/jobs/${encodeURIComponent(result.job_id)}`;
+          setImportJob({ job_id: result.job_id, status_url: statusUrl });
+          startJobPolling(statusUrl);
+        }
         setMessage(formatValue(result.message, "Batch draft upload completed."));
         setJsonImport("");
         setJsonFile(null);
@@ -529,28 +729,101 @@ function UploadPage() {
   }
 
   async function handlePublishSubject() {
-    const subjectCode = publishSubjectCode.trim();
+    const selectedSubject = subjects.find((subject) => String(subject.subject_id) === String(publishSubjectId));
 
-    if (!subjectCode) {
-      setPublishMessage("Enter a subject code to publish.");
+    if (!selectedSubject) {
+      setPublishMessage("Select a subject to publish.");
       return;
     }
 
     setPublishing(true);
     setPublishResult(null);
-    setPublishMessage(`Publishing subject data for ${subjectCode}...`);
+    setPublishMessage(`Publishing subject data for ${selectedSubject.subject_code}...`);
 
     try {
-      const response = await apiEndpoints.publishSubject(subjectCode);
+      const response = await apiEndpoints.publishSubject(selectedSubject.subject_id);
       const data = response.data || {};
       setPublishResult(data);
-      setPublishMessage(formatValue(data.message, `Subject ${subjectCode} published successfully.`));
+      setPublishMessage(formatValue(data.message, `Subject ${selectedSubject.subject_code} published successfully.`));
     } catch (error) {
       console.error(error);
-      setPublishMessage(getErrorMessage(error.response?.data || {}, "Publish failed. Check the subject code and backend response."));
+      setPublishMessage(getErrorMessage(error.response?.data || {}, "Publish failed. Check the selected subject and backend response."));
     } finally {
       setPublishing(false);
     }
+  }
+
+  function stopJobPolling() {
+    jobPollRef.current.active = false;
+    if (jobPollRef.current.timeoutId) {
+      clearTimeout(jobPollRef.current.timeoutId);
+      jobPollRef.current.timeoutId = null;
+    }
+  }
+
+  async function fetchJobStatus(statusUrl) {
+    try {
+      const isAbsolute = String(statusUrl).startsWith("http");
+      let response;
+      if (isAbsolute) {
+        const token = localStorage.getItem("access_token");
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(statusUrl, { headers });
+        response = { data: await res.json(), status: res.status };
+      } else {
+        response = await API.get(statusUrl);
+      }
+
+      return response.data || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function startJobPolling(statusUrl, intervalMs = 2000, maxAttempts = 180) {
+    stopJobPolling();
+    jobPollRef.current.active = true;
+    let attempts = 0;
+
+    const poll = async () => {
+      if (!jobPollRef.current.active) return;
+      attempts += 1;
+      const statusData = await fetchJobStatus(statusUrl);
+      if (statusData) {
+        setJobStatus(statusData);
+      }
+
+      const rawStatus = String(statusData?.status || statusData?.state || "").toLowerCase();
+      const isPending = !rawStatus || rawStatus === "pending";
+      const isProcessing = rawStatus === "in_progress" || rawStatus === "processing" || rawStatus === "running";
+      const isCompleted = rawStatus === "completed" || rawStatus === "success" || rawStatus === "done";
+      const isFailed = rawStatus === "failed" || rawStatus === "error" || rawStatus === "failed_with_errors";
+
+      if (isPending || isProcessing) {
+        if (attempts >= maxAttempts) {
+          stopJobPolling();
+          setMessage("Import job timed out. Check backend job status separately.");
+          return;
+        }
+
+        // keep polling
+        jobPollRef.current.timeoutId = setTimeout(poll, intervalMs);
+        return;
+      }
+
+      // terminal
+      stopJobPolling();
+      if (isCompleted) {
+        setMessage(statusData?.message || "Import job completed successfully.");
+      } else if (isFailed) {
+        const reason = statusData?.error || statusData?.error_detail || statusData?.failure_reason || statusData?.message;
+        setMessage(reason || "Import job failed. See details.");
+      } else {
+        setMessage(statusData?.message || "Import job completed.");
+      }
+    };
+
+    poll();
   }
 
   return (
@@ -759,9 +1032,48 @@ function UploadPage() {
             )}
           </section>
         )}
+            {(importJob || jobStatus) && (
+              <section className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/40 sm:p-4">
+                <h3 className="text-lg font-semibold text-slate-900">Import job status</h3>
+                <div className="mt-2 text-sm text-slate-700">
+                  {importJob?.job_id && <p>Job ID: <span className="font-mono text-xs">{String(importJob.job_id)}</span></p>}
+                  {importJob?.status_url && (
+                    <p>
+                      Status URL: <a className="text-cyan-700" href={importJob.status_url} target="_blank" rel="noreferrer">Open status</a>
+                    </p>
+                  )}
+                  {jobStatus && (
+                    <div className="mt-2">
+                      {(() => {
+                        const raw = String(jobStatus.status || jobStatus.state || "").toLowerCase();
+                        const display = raw === "pending" || raw === "" ? "Pending" : raw === "in_progress" || raw === "processing" || raw === "running" ? "Processing" : raw === "completed" || raw === "success" || raw === "done" ? "Completed" : raw === "failed" || raw === "error" || raw === "failed_with_errors" ? "Failed" : (jobStatus.status || jobStatus.state || "Unknown");
 
+                        return (
+                          <div>
+                            <p className="font-medium">Status: <span className={
+                              display === "Completed" ? "text-green-700" : display === "Failed" ? "text-rose-700" : "text-amber-700"
+                            }>{display}</span></p>
+
+                            {typeof jobStatus.progress === "number" && (
+                              <div className="mt-2 w-full rounded-full bg-white/10 h-2">
+                                <div className="h-2 rounded-full bg-cyan-400" style={{ width: `${Math.max(0, Math.min(100, jobStatus.progress))}%` }} />
+                              </div>
+                            )}
+
+                            {(() => {
+                              const reason = jobStatus.error || jobStatus.error_detail || jobStatus.failure_reason || jobStatus.message;
+                              return reason ? <p className="mt-2 text-sm text-rose-700">{String(reason)}</p> : null;
+                            })()}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
         <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <form onSubmit={handleSubmit} className="min-w-0 space-y-6 overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
+          <form onSubmit={handleSubmit} noValidate className="min-w-0 space-y-6 overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="break-words text-2xl font-semibold text-slate-950">
@@ -775,6 +1087,67 @@ function UploadPage() {
                 <div className="rounded-full bg-cyan-50 px-4 py-2 text-xs font-medium text-cyan-700">
                   {questionProgress.complete}/{questionProgress.total} questions complete
                 </div>
+              )}
+            </div>
+
+            <div className="grid gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-slate-700">
+                University
+                <select
+                  value={selectedUniversity}
+                  onChange={(event) => {
+                    setSelectedUniversity(event.target.value);
+                    setSelectedDepartment("");
+                    setDepartments([]);
+                    setScopeError("");
+                  }}
+                  disabled={universitiesLoading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-cyan-400 focus:bg-white"
+                >
+                  <option value="">{universitiesLoading ? "Loading universities..." : "Select university"}</option>
+                  {universities.map((university) => {
+                    const id = getUniversityId(university);
+                    return (
+                      <option key={id || getUniversityLabel(university)} value={id}>
+                        {getUniversityLabel(university)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+
+              <label className="space-y-2 text-sm font-medium text-slate-700">
+                Department
+                <select
+                  value={selectedDepartment}
+                  onChange={(event) => {
+                    setSelectedDepartment(event.target.value);
+                    setScopeError("");
+                  }}
+                  disabled={!selectedUniversity || departmentsLoading || departments.length === 0}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-cyan-400 focus:bg-white"
+                >
+                  <option value="">
+                    {!selectedUniversity
+                      ? "Select university first"
+                      : departmentsLoading
+                        ? "Loading departments..."
+                        : "Select department"}
+                  </option>
+                  {departments.map((department) => {
+                    const id = getDepartmentId(department);
+                    return (
+                      <option key={id || getDepartmentLabel(department)} value={id}>
+                        {getDepartmentLabel(department)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+
+              {scopeError && <p className="text-sm text-rose-600 sm:col-span-2">{scopeError}</p>}
+              {selectedUniversity && !departmentsLoading && departments.length === 0 && !scopeError && (
+                <p className="text-sm text-amber-700 sm:col-span-2">No departments found for this university.</p>
               )}
             </div>
 
@@ -1021,12 +1394,24 @@ function UploadPage() {
                 <h3 className="text-lg font-semibold text-slate-950">Publish subject</h3>
                 <p className="mt-1 text-sm text-slate-600">Save exams as drafts from the form first, then publish the subject when students should see it.</p>
               </div>
-              <input
-                value={publishSubjectCode}
-                onChange={(event) => setPublishSubjectCode(event.target.value)}
-                placeholder="CSE-421"
+              <select
+                value={publishSubjectId}
+                onChange={(event) => {
+                  const subjectId = event.target.value;
+                  const subject = subjects.find((item) => String(item.subject_id) === String(subjectId));
+                  setPublishSubjectId(subjectId);
+                  setPublishSubjectCode(subject?.subject_code || "");
+                }}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-cyan-400"
-              />
+              >
+                <option value="">Select subject</option>
+                {subjects.map((subject) => (
+                  <option key={subject.subject_id} value={subject.subject_id}>
+                    {formatValue(subject.subject_code)} - {formatValue(subject.subject_name)}
+                  </option>
+                ))}
+              </select>
+              {publishSubjectCode && <p className="text-xs text-cyan-800/80">Selected code: {formatValue(publishSubjectCode)}</p>}
               <button
                 type="button"
                 onClick={handlePublishSubject}
@@ -1058,7 +1443,7 @@ function UploadPage() {
               <p className="font-semibold">Example subjects loaded</p>
               <div className="mt-3 space-y-2">
                 {subjects.slice(0, 4).map((subject, index) => (
-                  <div key={formatValue(subject.subject_code, index)} className="flex flex-col gap-1 rounded-2xl bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                  <div key={formatValue(subject.subject_id, index)} className="flex flex-col gap-1 rounded-2xl bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <span className="break-words font-medium text-slate-900">{formatValue(subject.subject_code)}</span>
                     <span className="break-words text-slate-500 sm:text-right">{formatValue(subject.subject_name)}</span>
                   </div>

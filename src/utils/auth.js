@@ -8,6 +8,8 @@ export const PASSWORD_VALIDATION_MESSAGE =
   "Password must be at least 8 characters and include at least one letter and one number.";
 export const PERMISSION_DENIED_MESSAGE = "You do not have permission to access this page.";
 export const UNVERIFIED_EMAIL_MESSAGE = "Please verify your email before logging in.";
+export const MISSING_STUDENT_SCOPE_BACKEND_MESSAGE = "Please complete your university and department profile first.";
+export const MISSING_STUDENT_SCOPE_MESSAGE = "Please complete your university and department profile first to access subjects.";
 
 export function isAdminRole(role) {
   return ADMIN_ROLES.includes(role);
@@ -23,6 +25,10 @@ export function isSuperAdminRole(role) {
 
 export function getApiErrorMessage(error, fallback) {
   const detail = error.response?.data?.detail || error.response?.data?.message || error.data?.detail || error.data?.message;
+
+  if (isMissingStudentScopeError(error)) {
+    return MISSING_STUDENT_SCOPE_MESSAGE;
+  }
 
   if (Array.isArray(detail)) {
     return detail
@@ -55,4 +61,11 @@ export function getApiErrorMessage(error, fallback) {
 
 export function isUnverifiedEmailError(error) {
   return getApiErrorMessage(error, "") === UNVERIFIED_EMAIL_MESSAGE;
+}
+
+export function isMissingStudentScopeError(error) {
+  const status = error.response?.status || error.status;
+  const detail = error.response?.data?.detail || error.response?.data?.message || error.data?.detail || error.data?.message;
+
+  return status === 400 && detail === MISSING_STUDENT_SCOPE_BACKEND_MESSAGE;
 }

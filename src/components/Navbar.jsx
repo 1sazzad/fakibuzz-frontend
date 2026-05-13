@@ -4,6 +4,7 @@ import { useAuth } from "../context/useAuth";
 import { APP_NAME } from "../config/app";
 import Button from "./ui/Button";
 import { isSuperAdminRole } from "../utils/auth";
+import { useSidebarCollapsed } from "../hooks/useSidebarCollapsed";
 
 const publicNavItems = [
   { to: "/#features", label: "Features" },
@@ -15,16 +16,12 @@ const publicNavItems = [
 ];
 
 const studentNavItems = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/subjects", label: "Subjects" },
-  { to: "/search", label: "Search" },
-  { to: "/analysis", label: "Analysis" },
-  { to: "/predict", label: "Predictions" },
-  { to: "/suggestions", label: "Suggestions" },
-  { to: "/generate-answer", label: "Answers" },
-  { to: "/support", label: "Support" },
-  { to: "/feedback", label: "Feedback" },
   { to: "/profile", label: "Profile" },
+  { to: "/subjects", label: "Subjects" },
+  { to: "/suggestions", label: "Suggestions" },
+  { to: "/answers", label: "Answer Builder" },
+  { to: "/support", label: "Support" },
+  { to: "/feedback", label: "Contact / Feedback" },
 ];
 
 const adminNavItems = [
@@ -41,6 +38,27 @@ const superAdminNavItems = [
   { to: "/admin/universities", label: "Universities" },
   { to: "/admin/departments", label: "Departments" },
 ];
+
+function getIconForItem(label) {
+  const iconMap = {
+    Profile: "👤",
+    Subjects: "📚",
+    Suggestions: "💡",
+    "Answer Builder": "🔨",
+    Support: "🤝",
+    "Contact / Feedback": "💬",
+    Dashboard: "📊",
+    Upload: "⬆️",
+    Questions: "❓",
+    "Manage Questions": "❓",
+    Subjects: "📚",
+    Profile: "👤",
+    Universities: "🏛️",
+    Departments: "🏢",
+    Feedback: "💬",
+  };
+  return iconMap[label] || "•";
+}
 
 function navClass({ isActive }) {
   return [
@@ -77,6 +95,7 @@ function Navbar() {
   const location = useLocation();
   const [isPublicMenuOpen, setIsPublicMenuOpen] = useState(false);
   const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
+  const { isCollapsed, toggleCollapsed } = useSidebarCollapsed();
   const navItems = !isAuthenticated
     ? publicNavItems
     : isAdmin
@@ -255,30 +274,93 @@ function Navbar() {
         )}
       </nav>
 
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-slate-200 bg-white px-4 py-5 lg:flex lg:flex-col">
-        <Brand onClick={handleBrandClick} />
-
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            {roleLabel}
-          </p>
-          <p className="mt-2 truncate text-sm font-semibold text-slate-950">
-            {user?.full_name || user?.email || roleLabel}
-          </p>
-          {user?.email && <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 hidden border-r border-slate-200 bg-white transition-all duration-300 lg:flex lg:flex-col ${
+          isCollapsed ? "w-20" : "w-72"
+        }`}
+      >
+        {/* Header with Brand and Collapse Button */}
+        <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-5">
+          {!isCollapsed && <Brand onClick={handleBrandClick} />}
+          {isCollapsed && (
+            <Link
+              to="/"
+              onClick={handleBrandClick}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white"
+              aria-label="FakiBuzz"
+              title="FakiBuzz"
+            >
+              F
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+            )}
+          </button>
         </div>
 
-        <div className="mt-6 flex flex-1 flex-col gap-1">
+        {/* User Info Card */}
+        {!isCollapsed && (
+          <div className="mx-4 mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{roleLabel}</p>
+            <p className="mt-2 truncate text-sm font-semibold text-slate-950">
+              {user?.full_name || user?.email || roleLabel}
+            </p>
+            {user?.email && <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>}
+          </div>
+        )}
+
+        {/* Scrollable Menu Container */}
+        <div
+          className={`mt-6 flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-4 ${
+            isCollapsed ? "px-2" : ""
+          }`}
+        >
           {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={navClass}>
-              {item.label}
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex min-h-10 items-center rounded-xl transition ${
+                  isActive
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                } ${isCollapsed ? "justify-center" : "gap-3 px-3 py-2"}`
+              }
+              title={isCollapsed ? item.label : undefined}
+            >
+              <span className="shrink-0 text-lg">{getIconForItem(item.label)}</span>
+              {!isCollapsed && (
+                <span className="min-w-0 truncate text-sm font-medium">{item.label}</span>
+              )}
             </NavLink>
           ))}
         </div>
 
-        <Button variant="secondary" className="w-full" onClick={handleLogout}>
-          Logout
-        </Button>
+        {/* Logout Button */}
+        <div className="border-t border-slate-100 px-4 py-4">
+          <Button
+            variant="secondary"
+            className={`w-full ${isCollapsed ? "p-0" : ""}`}
+            onClick={handleLogout}
+            title={isCollapsed ? "Logout" : undefined}
+          >
+            {isCollapsed ? "🚪" : "Logout"}
+          </Button>
+        </div>
       </aside>
     </>
   );

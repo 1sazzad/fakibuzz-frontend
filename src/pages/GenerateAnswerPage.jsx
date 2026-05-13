@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useAuth } from "../context/useAuth";
+import { Link, useLocation } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { apiEndpoints } from "../api/api";
 import { Badge, Button, Card, ErrorMessage, PageHeader, QuestionExtras, ResponsiveContainer } from "../components/ui";
+import { MISSING_STUDENT_SCOPE_MESSAGE, isMissingStudentScopeError } from "../utils/auth";
 
 const ANSWER_TYPE_MARKS = {
   "2_mark": 2,
@@ -73,6 +75,10 @@ const markdownComponents = {
 };
 
 function getErrorMessage(error, fallback) {
+  if (isMissingStudentScopeError(error)) {
+    return MISSING_STUDENT_SCOPE_MESSAGE;
+  }
+
   const detail = error.response?.data?.detail || error.response?.data?.message;
 
   if (Array.isArray(detail)) {
@@ -111,6 +117,7 @@ function normalizeRelatedQuestions(payload) {
 }
 
 function GenerateAnswerPage() {
+  const { user } = useAuth();
   const location = useLocation();
   const [question, setQuestion] = useState(() => location.state?.question || "");
   const [subjectCode, setSubjectCode] = useState(() => location.state?.subject_code || "");
@@ -127,11 +134,16 @@ function GenerateAnswerPage() {
   const [subjects, setSubjects] = useState([]);
   const [message, setMessage] = useState("Ask a question and generate a simple answer.");
   const [isError, setIsError] = useState(false);
+  const [missingScope, setMissingScope] = useState(false);
 
   useEffect(() => {
     let active = true;
 
-    apiEndpoints.getSubjects({ status: "published" })
+    const params = { status: "published" };
+    if (user?.university_id) params.university_id = user.university_id;
+    if (user?.department_id) params.department_id = user.department_id;
+
+    apiEndpoints.getSubjects(params)
       .then((response) => {
         if (!active) {
           return;
@@ -143,11 +155,14 @@ function GenerateAnswerPage() {
         if (!subjectCode && subjectList.length > 0) {
           setSubjectCode(subjectList[0].subject_code);
         }
+        setMissingScope(false);
       })
       .catch((error) => {
         console.error(error);
         if (active) {
-          setMessage("Could not load subjects. You can still type a subject code manually.");
+          setMissingScope(isMissingStudentScopeError(error));
+          setIsError(isMissingStudentScopeError(error));
+          setMessage(getErrorMessage(error, "Could not load subjects. You can still type a subject code manually."));
         }
       });
 
@@ -158,6 +173,7 @@ function GenerateAnswerPage() {
 
   async function handleGenerateAnswer(event) {
     event.preventDefault();
+    setMissingScope(false);
 
     if (!question.trim() || !subjectCode.trim()) {
       setIsError(true);
@@ -225,6 +241,7 @@ function GenerateAnswerPage() {
       setAnswerResult(data);
       setQuota(data.quota || null);
       setAnswer(data.generated_answer || data.answer || JSON.stringify(data, null, 2));
+      setMissingScope(false);
       setMessage("Answer generated successfully.");
     } catch (error) {
       console.error(error);
@@ -233,6 +250,7 @@ function GenerateAnswerPage() {
       setAnswerResult(null);
       setQuota(getQuotaFromError(error));
       setIsError(true);
+      setMissingScope(isMissingStudentScopeError(error));
       setMessage(quotaErrorMessage || getErrorMessage(error, "The backend could not generate an answer for this request."));
     } finally {
       setLoading(false);
@@ -363,6 +381,13 @@ function GenerateAnswerPage() {
 
           <div className="mt-4">
             <ErrorMessage tone={isError ? "error" : "info"}>{message}</ErrorMessage>
+            {missingScope && (
+              <div className="mt-3">
+                <Button as={Link} to="/profile" variant="secondary">
+                  Go to profile
+                </Button>
+              </div>
+            )}
           </div>
 
           {quota && (
